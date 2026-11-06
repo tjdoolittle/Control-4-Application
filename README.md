@@ -22,7 +22,7 @@ Screenshots use real project backups with client names, locations, MACs and Zigb
 | Section | Contents |
 |---|---|
 | **Devices** | Grouped by floor and room. Load or zone name, hardware name, manufacturer, model, control method (IP, Zigbee, IR, Serial), address, MAC, firmware and driver version. |
-| **Network** | IP devices sorted by address with MAC and status, duplicate IPs flagged, IP drivers with no address, and every Zigbee device ID. |
+| **Network** | IP devices sorted by address with MAC and status, duplicate IPs flagged, IP drivers with no address, and every Zigbee device ID. Add the site's **OvrC device list** (CSV) and it is merged in: devices are matched by MAC address, then by an IP only one device uses, and each OvrC device is used once, so nothing is listed twice. Matched devices gain OvrC status, IP and MAC; network gear Composer doesn't know about (switches, routers, access points) is added; phones and personal devices are hidden unless you ask for them; anything that could be two different devices waits for you to decide. |
 | **Schematic** | Every wired device as a block with its real port names, laid out left to right by signal flow. Drag blocks, pan and zoom, click a block to trace its wires, filter by wire type. Add your own blocks (a network switch, a patch panel) and draw wires Composer doesn't know about, then rename their ports. Layout and added wires are saved per project. Export as SVG. |
 | **Changes** | Open two backups of the same job and see what changed between them: devices added or removed, IP, MAC, firmware and driver changes, renames and room moves, and rebound wiring. Copy the summary for a service ticket or download it as CSV. |
 | **Closeout** | A print-ready as-built packet: cover with your company, logo and service contact, system overview with notes, the schematic on a landscape page, inventory, wiring, network, open issues, changes since the previous backup, and a sign-off page. Choose sections and paper size, then print or save as PDF. |
@@ -58,6 +58,7 @@ app/js/parser.js       the .c4p parser; works in the browser and in Node
 app/js/app.js          the interface
 app/js/schematic.js    the schematic builder
 app/js/compare.js      compares two backups; works in the browser and in Node
+app/js/ovrc.js         reads an OvrC device list and merges it without duplicates
 app/js/programming.js  the Programming tab
 app/js/packet.js       builds the closeout packet pages
 app/js/sample.js       an invented example project shown before any file is opened
@@ -78,7 +79,7 @@ node test/parse-test.js path/to/Project.c4p
 node test/compare-test.js older.c4p newer.c4p
 ```
 
-`.c4p` files are git-ignored so client backups don't end up in the repo.
+`.c4p` files and OvrC exports are git-ignored so client data doesn't end up in the repo.
 
 ## Windows desktop app
 

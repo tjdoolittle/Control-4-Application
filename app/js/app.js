@@ -12,8 +12,13 @@
     category: 'All',
     control: 'All',
     compareWith: {},   // active project key -> key of the backup it is compared with
-    pg: { search: '', device: '', naming: null }   // Programming tab view
+    pg: { search: '', device: '', naming: null },  // Programming tab view
+    ovrcPersonal: false                            // show phones and personal devices from OvrC
   };
+
+  // The project as shown: Composer data with any imported OvrC list merged in.
+  // Comparisons between backups use the raw project so OvrC rows don't show up as changes.
+  function view(p) { return p && !p.sample && p.ovrc && window.C4Ovrc ? window.C4Ovrc.apply(p, { showPersonal: state.ovrcPersonal }) : p; }
 
   const $ = sel => document.querySelector(sel);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -51,7 +56,9 @@
   // ---------- loading files ----------
   async function loadFiles(files, opts) {
     opts = opts || {};
+    const csvs = Array.from(files).filter(f => /\.csv$/i.test(f.name) || f.type === 'text/csv');
     const list = Array.from(files).filter(f => /\.c4p$/i.test(f.name) || f.type === 'application/zip');
+    if (csvs.length && !list.length) { await importOvrc(csvs[0]); return; }
     if (!list.length) { showError('Those files are not .c4p backups. Export one from Composer Pro with File → Backup Project.'); return; }
     hideError();
     const loading = $('#loading');
@@ -91,6 +98,25 @@
       toast(list.length - failures.length === 1 ? 'Backup read' : `${list.length - failures.length} backups read`);
     }
   }
+  async function importOvrc(file) {
+    const raw = active();
+    if (!raw || raw.sample) { showError('Open the project\'s .c4p backup first, then add its OvrC device list to it.'); return; }
+    hideError();
+    try {
+      const data = window.C4Ovrc.readOvrcCsv(await file.text(), file.name);
+      // Keep decisions made on an earlier import for devices that are still in the list
+      const old = (raw.ovrc && raw.ovrc.links) || {};
+      data.rows.forEach(r => { if (old[r.key]) data.links[r.key] = old[r.key]; });
+      raw.ovrc = data;
+      save();
+      state.tab = 'network';
+      render();
+      const sm = view(raw).ovrcSummary;
+      toast(`${sm.rows} OvrC devices: ${sm.matched} matched, ${sm.added} added${sm.decisions.length ? ', ' + sm.decisions.length + ' need a decision' : ''}`);
+    } catch (e) {
+      showError(e.message || 'That CSV could not be read.');
+    }
+  }
   function showError(msg) { const e = $('#error'); e.textContent = msg; e.hidden = false; }
   function hideError() { $('#error').hidden = true; }
 
@@ -98,10 +124,10 @@
   function csvCell(v) { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
   function devicesCsv(p) {
     const rooms = roomMap(p);
-    const head = ['Project', 'Floor', 'Room', 'Device', 'Hardware name', 'Category', 'Manufacturer', 'Model', 'Control', 'IP address', 'Zigbee ID', 'MAC', 'Firmware', 'Driver version', 'Driver file', 'Status', 'Added', 'Notes'];
+    const head = ['Project', 'Floor', 'Room', 'Device', 'Hardware name', 'Category', 'Manufacturer', 'Model', 'Control', 'IP address', 'Zigbee ID', 'MAC', 'Firmware', 'Driver version', 'Driver file', 'Status', 'Added', 'Source', 'Notes'];
     const rows = p.devices.map(d => {
       const r = rooms[d.room] || {};
-      return [p.project.name, r.floor || '', r.name || '', d.name, d.hardwareName || '', d.category, d.maker, d.model, d.control, d.ip, d.zigbee, d.mac, d.firmware, d.driverVersion, d.driverFile, d.status, d.added, d.flags.map(f => f.text).join('; ')];
+      return [p.project.name, r.floor || '', r.name || '', d.name, d.hardwareName || '', d.category, d.maker, d.model, d.control, d.ip, d.zigbee, d.mac, d.firmware, d.driverVersion, d.driverFile, d.status, d.added, d.source || 'Composer', d.flags.map(f => f.text).join('; ')];
     });
     return [head].concat(rows).map(r => r.map(csvCell).join(',')).join('\r\n');
   }
@@ -160,9 +186,10 @@
   }
 
   function renderProject() {
-    const view = $('#project-view');
-    const p = active();
-    if (!p) { view.innerHTML = ''; return; }
+    const viewEl = $('#project-view');
+    const raw = active();
+    const p = view(raw);
+    if (!p) { viewEl.innerHTML = ''; return; }
     const rooms = roomMap(p);
     const ipCount = p.devices.filter(d => d.ip || d.addrNote === 'Primary controller').length;
     const zbCount = p.devices.filter(d => d.zigbee).length;
@@ -177,12 +204,12 @@
       ['programming', 'Programming', p.programming && !p.programming.error ? p.programming.events.length + p.programming.scenes.length : ''],
       ['wiring', 'Wiring', p.connections.length],
       ['attention', 'Attention', issues],
-      ['changes', 'Changes', changeCount(p)],
+      ['changes', 'Changes', changeCount(raw)],
       ['closeout', 'Closeout', ''],
       ['services', 'Services & drivers', p.services.length]
     ];
 
-    view.innerHTML = `
+    viewEl.innerHTML = `
       ${p.sample ? `<div class="sample-note"><span><strong>Example project.</strong> Every name and address here is made up. Open your own .c4p files to see real data.</span><label class="btn btn-small" for="file-input">Open .c4p files</label></div>` : ''}
       <div class="project-head">
         <div>
@@ -220,9 +247,12 @@
     renderPanel(p, rooms);
   }
 
-  function renderPanel(p, rooms) {
+  function renderPanel() {
     const panel = $('#panel');
     if (!panel) return;
+    const p = view(active());
+    if (!p) return;
+    const rooms = roomMap(p);
     if (state.tab === 'devices') panel.innerHTML = devicesPanel(p, rooms);
     else if (state.tab === 'network') panel.innerHTML = networkPanel(p, rooms);
     else if (state.tab === 'schematic') {
@@ -231,7 +261,7 @@
     }
     else if (state.tab === 'wiring') panel.innerHTML = wiringPanel(p, rooms);
     else if (state.tab === 'attention') panel.innerHTML = attentionPanel(p, rooms);
-    else if (state.tab === 'changes') panel.innerHTML = changesPanel(p);
+    else if (state.tab === 'changes') panel.innerHTML = changesPanel(active());
     else if (state.tab === 'programming') panel.innerHTML = window.C4Programming.render(p, state.pg);
     else if (state.tab === 'closeout') { panel.innerHTML = closeoutPanel(p); renderPacketPreview(); }
     else panel.innerHTML = servicesPanel(p, rooms);
@@ -251,6 +281,67 @@
     });
   }
 
+  function srcBadge(d) {
+    if (d.source === 'OvrC') return ' <span class="src-badge" title="Found in OvrC, not in the Control4 project">OvrC</span>';
+    if (d.ovrc) return ` <span class="src-badge src-merge" title="Matched to OvrC by ${d.ovrc.by === 'mac' ? 'MAC address' : d.ovrc.by === 'ip' ? 'IP address' : 'your choice'}">+ OvrC</span>`;
+    return '';
+  }
+  function ovrcSection(p) {
+    if (p.sample) return '';
+    const sm = p.ovrcSummary;
+    if (!sm) {
+      return `<div class="ovrc-card">
+        <div><div class="dname">Add the OvrC device list</div>
+          <p class="section-note">In OvrC, open this site's device list and export it as CSV. Devices are matched by MAC address, then by IP; each OvrC device is used once, so nothing is listed twice. Network gear Composer doesn't know about, like switches and access points, is added to the inventory.</p></div>
+        <label class="btn btn-small" for="ovrc-input">Add OvrC CSV</label>
+      </div>`;
+    }
+    const rawP = active();
+    const devName = id => { const d = rawP.devices.find(x => x.id === id); return d ? d.name : id; };
+    const cats = {};
+    sm.extras.forEach(x => { cats[x.category] = (cats[x.category] || 0) + 1; });
+    const linkable = rawP.devices.filter(d => (d.control === 'IP' || d.ip || d.mac) && !(p.devices.find(x => x.id === d.id) || {}).ovrc).sort((a, b) => a.name.localeCompare(b.name));
+    return `<div class="ovrc-card ovrc-on">
+      <div class="ovrc-head">
+        <div><div class="dname">OvrC device list</div>
+          <div class="dsub">${esc(sm.fileName)} · added ${esc(new Date(sm.importedAt).toLocaleString())}</div></div>
+        <div class="export-row">
+          <label class="btn btn-small" for="ovrc-input">Replace</label>
+          <button class="btn btn-small" data-action="ovrc-remove">Remove</button>
+        </div>
+      </div>
+      <div class="ovrc-stats">
+        <span><b>${sm.rows}</b> in OvrC</span>
+        <span><b>${sm.matched}</b> matched to Control4 devices${sm.byHow.mac ? ` (${sm.byHow.mac} by MAC${sm.byHow.ip ? ', ' + sm.byHow.ip + ' by IP' : ''}${sm.byHow.you ? ', ' + sm.byHow.you + ' by you' : ''})` : ''}</span>
+        <span><b>${sm.added}</b> added as network devices</span>
+        ${sm.decisions.length ? `<span class="ovrc-need"><b>${sm.decisions.length}</b> need a decision</span>` : ''}
+        ${(sm.personalHidden || state.ovrcPersonal) ? `<button class="chip" data-action="ovrc-personal" aria-pressed="${state.ovrcPersonal}">${state.ovrcPersonal ? 'Hide' : 'Show'} ${cats.Personal || 0} phones and personal devices</button>` : ''}
+      </div>
+      ${sm.decisions.length ? `<div class="ovrc-decide">
+        <div class="eyebrow">Needs a decision</div>
+        <p class="section-note">These OvrC devices share an IP address with more than one device, so they weren't merged automatically. They stay out of the inventory until you choose.</p>
+        ${sm.decisions.map(x => `<div class="ovrc-row">
+          <div><b>${esc(window.C4Ovrc.displayName(x.row))}</b> <span class="mono">${esc(x.row.ip)}</span> <span class="mono dsub">${esc(x.row.mac)}</span><div class="dsub">${esc(x.row.maker)} · ${esc(x.reason)}</div></div>
+          <select data-ovrc-row="${esc(x.row.key)}" aria-label="What is this OvrC device?">
+            <option value="">Choose…</option>
+            ${x.options.map(id => `<option value="${esc(id)}">Same device as ${esc(devName(id))}</option>`).join('')}
+            <option value="separate">A different device: add it on its own</option>
+          </select>
+        </div>`).join('')}
+      </div>` : ''}
+      ${sm.extras.length ? `<details class="ovrc-extra"><summary>Match OvrC devices by hand <span class="dsub">(${sm.extras.length} not matched automatically)</span></summary>
+        <p class="section-note">If one of these is a Control4 device that had no address in Composer, pick it here and the two are merged.</p>
+        ${sm.extras.filter(x => state.ovrcPersonal || x.category !== 'Personal').map(x => `<div class="ovrc-row">
+          <div><b>${esc(window.C4Ovrc.displayName(x.row))}</b> <span class="dsub">${esc(x.category)}</span> <span class="mono">${esc(x.row.ip)}</span><div class="dsub mono">${esc(x.row.mac)} · ${esc(x.row.maker)}</div></div>
+          <select data-ovrc-row="${esc(x.row.key)}" aria-label="Match to a Control4 device">
+            <option value="">Not in Control4</option>
+            ${linkable.map(d => `<option value="${esc(d.id)}">Same device as ${esc(d.name)}</option>`).join('')}
+          </select>
+        </div>`).join('')}
+      </details>` : ''}
+    </div>`;
+  }
+
   function devicesPanel(p, rooms) {
     const cats = ['All'].concat(Array.from(new Set(p.devices.map(d => d.category))).sort());
     const ctrls = ['All'].concat(['IP', 'Zigbee', 'IR', 'Serial', 'None'].filter(c => p.devices.some(d => (d.control || 'None') === c)));
@@ -262,7 +353,7 @@
     const rowsHtml = groups.map(g => `
       <tr class="room-row"><td colspan="6">${esc(g.room ? g.room.name : 'No room')}${g.room && g.room.floor ? `<span class="floor">${esc(g.room.floor)}</span>` : ''}</td></tr>
       ${g.items.map(d => `<tr>
-        <td><div class="dname">${esc(d.name)}</div>${d.hardwareName ? `<div class="dsub">${esc(d.hardwareName)}</div>` : ''}${d.proxies.length ? `<div class="dsub">Also: ${esc(d.proxies.join(', '))}</div>` : ''}
+        <td><div class="dname">${esc(d.name)}${srcBadge(d)}</div>${d.hardwareName ? `<div class="dsub">${esc(d.hardwareName)}</div>` : ''}${d.proxies.length ? `<div class="dsub">Also: ${esc(d.proxies.join(', '))}</div>` : ''}
           ${d.flags.map(f => `<div class="flag-inline ${f.level}"><span class="flag-dot ${f.level}"></span>${esc(f.text)}</div>`).join('')}</td>
         <td>${esc(d.maker)}<div class="dsub">${esc(d.model)}</div></td>
         <td>${controlPill(d.control)}</td>
@@ -297,14 +388,14 @@
     ipRows.forEach(d => { if (d.ip) { if (seen.has(d.ip)) dup.add(d.ip); seen.add(d.ip); } });
     const noAddr = p.devices.filter(d => d.control === 'IP' && !d.ip && !d.addrNote);
     const room = d => esc((rooms[d.room] || {}).name || '');
-    return `
+    return ovrcSection(p) + `
       <h2 class="section">IP devices</h2>
       <p class="section-note">Addresses as Composer last saw them. Discovered (SDDP) devices can change address if DHCP reservations are missing.</p>
       <div class="sheet"><table>
         <thead><tr><th>IP address</th><th>Device</th><th>Room</th><th>MAC</th><th>Model</th><th>Status</th></tr></thead>
         <tbody>${ipRows.map(d => `<tr>
           <td class="mono nowrap">${d.ip ? esc(d.ip) : `<span class="muted">${esc(d.addrNote)}</span>`}${dup.has(d.ip) ? `<div class="flag-inline bad"><span class="flag-dot bad"></span>Duplicate</div>` : ''}</td>
-          <td class="dname">${esc(d.name)}</td><td>${room(d)}</td>
+          <td class="dname">${esc(d.name)}${srcBadge(d)}</td><td>${room(d)}</td>
           <td class="mono nowrap">${esc(d.mac) || '<span class="empty-cell">—</span>'}</td>
           <td>${esc(d.maker)} ${esc(d.model)}</td>
           <td>${esc(d.status) || '<span class="empty-cell">—</span>'}</td></tr>`).join('') || '<tr><td colspan="6" class="empty-cell">No IP devices in this project.</td></tr>'}
@@ -507,12 +598,13 @@
   function packetOptions(p) {
     const st = pkSettings();
     const partner = partnerOf(p);
+    const v = view(p);
     return {
-      project: p, company: st.company, preparedBy: st.preparedBy, contact: st.contact, logo: st.logo,
+      project: v, company: st.company, preparedBy: st.preparedBy, contact: st.contact, logo: st.logo,
       notes: (st.notes || {})[keyOf(p)] || '', sections: st.sections, paper: st.paper,
       today: new Date().toISOString(),
       changes: partner ? window.C4Compare.compare(partner, p) : null,
-      schematic: window.C4Schematic.staticSvg(p, { key: keyOf(p), legacyKey: legacyKeyOf(p) })
+      schematic: window.C4Schematic.staticSvg(v, { key: keyOf(p), legacyKey: legacyKeyOf(p) })
     };
   }
   function closeoutPanel(p) {
@@ -643,8 +735,10 @@
     if (t.dataset.ctrl) { state.control = t.dataset.ctrl; renderPanel(active(), roomMap(active())); return; }
     const p = active();
     if (!p) return;
-    if (t.dataset.action === 'csv') download(safeName(p) + '_inventory.csv', devicesCsv(p), 'text/csv');
-    if (t.dataset.action === 'copy-csv') copy(devicesCsv(p), 'Inventory copied as CSV');
+    if (t.dataset.action === 'csv') download(safeName(p) + '_inventory.csv', devicesCsv(view(p)), 'text/csv');
+    if (t.dataset.action === 'copy-csv') copy(devicesCsv(view(p)), 'Inventory copied as CSV');
+    if (t.dataset.action === 'ovrc-remove') { delete p.ovrc; save(); render(); toast('OvrC list removed from this project'); return; }
+    if (t.dataset.action === 'ovrc-personal') { state.ovrcPersonal = !state.ovrcPersonal; renderProject(); return; }
     if (t.dataset.action === 'pk-print') { printPacket(); return; }
     if (t.dataset.action === 'pk-logo-clear') { const st = pkSettings(); st.logo = ''; pkSave(st); renderPanel(p, roomMap(p)); return; }
     if (t.dataset.action === 'copy-changes' || t.dataset.action === 'changes-csv') {
@@ -655,7 +749,7 @@
       else download(safeName(p) + '_changes_' + (r.older.backupDate || 'before').slice(0, 10) + '_to_' + (r.newer.backupDate || 'after').slice(0, 10) + '.csv', window.C4Compare.csv(r), 'text/csv');
       return;
     }
-    if (t.dataset.action === 'json') download(safeName(p) + '_sitesheet.json', JSON.stringify(p, null, 2), 'application/json');
+    if (t.dataset.action === 'json') download(safeName(p) + '_sitesheet.json', JSON.stringify(view(p), null, 2), 'application/json');
   });
 
   function savePgName() {
@@ -698,8 +792,18 @@
 
   $('#file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
   $('#compare-input').addEventListener('change', e => { loadFiles(e.target.files, { compareFor: state.activeKey }); e.target.value = ''; });
+  $('#ovrc-input').addEventListener('change', e => { if (e.target.files[0]) importOvrc(e.target.files[0]); e.target.value = ''; });
   document.addEventListener('change', e => {
     if (e.target.id === 'pk-paper' || (e.target.dataset && e.target.dataset.pksec)) { pkFieldChanged(e); return; }
+    if (e.target.dataset && e.target.dataset.ovrcRow) {
+      const raw = active();
+      if (!raw || !raw.ovrc) return;
+      const v = e.target.value;
+      if (v) raw.ovrc.links[e.target.dataset.ovrcRow] = v; else delete raw.ovrc.links[e.target.dataset.ovrcRow];
+      save(); renderProject();
+      toast(v === 'separate' ? 'Added as its own device' : v ? 'Merged' : 'Unmatched');
+      return;
+    }
     if (e.target.id === 'pg-device') { state.pg.device = e.target.value; renderPanel(active(), roomMap(active())); return; }
     if (e.target.id === 'pk-logo') {
       const f = e.target.files && e.target.files[0];

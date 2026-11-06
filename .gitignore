@@ -6,3 +6,5 @@ desktop/dist/
 desktop/www/
 desktop/.tmp/
 desktop/.storage/
+DeviceManagementList*.csv
+*ovrc*.csv

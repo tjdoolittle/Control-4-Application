@@ -272,6 +272,26 @@ h2.section { font-size: 18px; font-weight: 600; margin-top: 8px; }
 }
 
 
+/* ---------- OvrC ---------- */
+.ovrc-card { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 14px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+.ovrc-card > div:first-child { flex: 1 1 360px; min-width: 0; }
+.ovrc-card.ovrc-on { border-style: solid; flex-direction: column; align-items: stretch; }
+.ovrc-card.ovrc-on > *, .ovrc-card.ovrc-on > div:first-child { flex: none; }
+.ovrc-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.ovrc-stats { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; font-size: 14px; color: var(--ink-2); }
+.ovrc-stats b { font-family: var(--font-display); font-size: 17px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ovrc-need, .ovrc-need b { color: var(--warn); }
+.ovrc-decide { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.ovrc-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.ovrc-row:last-child { border-bottom: 0; }
+.ovrc-row > div { min-width: 0; flex: 1 1 260px; }
+.ovrc-row select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--ink); max-width: 100%; }
+.ovrc-extra { border-top: 1px solid var(--line); padding-top: 10px; }
+.ovrc-extra summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.ovrc-extra[open] summary { margin-bottom: 6px; }
+.src-badge { display: inline-block; font: 600 10.5px var(--font-body); letter-spacing: .03em; padding: 0 5px; border-radius: 4px; color: var(--c-zigbee); border: 1px solid currentColor; vertical-align: 2px; margin-left: 4px; }
+.src-badge.src-merge { color: var(--good); }
+
 /* ---------- programming ---------- */
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .pg-dev select { padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); max-width: 100%; }
