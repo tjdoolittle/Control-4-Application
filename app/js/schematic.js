@@ -586,5 +586,59 @@ ${clone.innerHTML}
     requestAnimationFrame(fit);
   }
 
-  window.C4Schematic = { mount };
+  // ---------- print: the saved layout as a standalone SVG string with a fixed paper palette ----------
+  const PRINT_COLORS = {
+    ir: '#c25a17', serial: '#0f8a87', hdmi: '#1667b7', audio: '#2f8a3a', speaker: '#6f8a1f',
+    network: '#7a4fc4', power: '#b3261e', other: '#7a8894'
+  };
+  function staticSvg(project, opts) {
+    opts = opts || {};
+    const saved = (opts.key && load(opts.key)) || (opts.legacyKey && load(opts.legacyKey)) || {};
+    saved.pos = saved.pos || {}; saved.custom = saved.custom || []; saved.hidden = saved.hidden || []; saved.blocks = saved.blocks || [];
+    const model = buildModel(project, saved);
+    const ids = Object.keys(model.nodes);
+    if (!ids.length) return { svg: '', nodes: 0, wires: 0, types: [] };
+    const auto = autoLayout(model);
+    const pos = {};
+    ids.forEach(id => { pos[id] = saved.pos[id] || auto[id]; });
+    const portY = (id, side, port) => {
+      const n = model.nodes[id], list = side === 'in' ? n.inputs : n.outputs;
+      return pos[id].y + HEAD_H + Math.max(0, list.indexOf(port)) * ROW_H + ROW_H / 2 + 2;
+    };
+    const path = w => {
+      const x1 = pos[w.from].x + NODE_W, y1 = portY(w.from, 'out', w.fromPort);
+      const x2 = pos[w.to].x, y2 = portY(w.to, 'in', w.toPort);
+      const dx = x2 < x1 + 20 ? 90 : Math.max(60, Math.abs(x2 - x1) * 0.45);
+      return `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+    };
+    const minX = Math.min(...ids.map(id => pos[id].x)) - 20, minY = Math.min(...ids.map(id => pos[id].y)) - 20;
+    const maxX = Math.max(...ids.map(id => pos[id].x + NODE_W)) + 20, maxY = Math.max(...ids.map(id => pos[id].y + model.nodes[id].h)) + 20;
+    const parts = [];
+    parts.push(`<svg xmlns="${NS}" viewBox="${minX} ${minY} ${maxX - minX} ${maxY - minY}" preserveAspectRatio="xMidYMid meet" class="print-schematic" role="img" aria-label="Schematic of ${esc(project.project.name)}">`);
+    parts.push(`<style>
+      .pn-body{fill:#fff;stroke:#b9c3cd;stroke-width:1}.pn-head{fill:#eef2f6}.pn-add{fill:#fbf0d9}
+      .pn-t{font:600 13px "IBM Plex Sans",system-ui,sans-serif;fill:#16212c}.pn-s{font:11px "IBM Plex Sans",system-ui,sans-serif;fill:#5f6e7a}
+      .pn-c{font:600 10px "IBM Plex Sans",system-ui,sans-serif;fill:#7a8894}.pn-p{font:11px "IBM Plex Mono",ui-monospace,monospace;fill:#3c4954}
+      .pn-pin{fill:#7a8894}.pn-w{fill:none;stroke-width:2}.pn-dash{stroke-dasharray:6 4}
+    </style>`);
+    model.wires.forEach(w => parts.push(`<path class="pn-w${w.custom ? ' pn-dash' : ''}" stroke="${PRINT_COLORS[w.type] || PRINT_COLORS.other}" d="${path(w)}"/>`));
+    ids.forEach(id => {
+      const n = model.nodes[id], d = n.dev, p = pos[id];
+      const head = d.custom ? 'pn-add' : 'pn-head';
+      parts.push(`<g transform="translate(${p.x},${p.y})">
+        <rect class="pn-body" width="${NODE_W}" height="${n.h}" rx="6"/>
+        <path class="${head}" d="M0.5,6.5 a6,6 0 0 1 6,-6 h${NODE_W - 13} a6,6 0 0 1 6,6 v${HEAD_H - 7} h-${NODE_W - 1} z"/>
+        <text class="pn-t" x="10" y="19">${esc(clip(d.name, d.control ? 23 : 29))}</text>
+        <text class="pn-s" x="10" y="36">${esc(clip([d.maker, d.model].filter(Boolean).join(' ') || d.category, 33))}</text>
+        <text class="pn-c" x="${NODE_W - 10}" y="19" text-anchor="end">${esc(d.control || '')}</text>
+        ${n.inputs.map((port, i) => { const y = HEAD_H + i * ROW_H + ROW_H / 2 + 2; return `<circle class="pn-pin" cx="0" cy="${y}" r="3"/><text class="pn-p" x="9" y="${y + 4}">${esc(clip(port, 16))}</text>`; }).join('')}
+        ${n.outputs.map((port, i) => { const y = HEAD_H + i * ROW_H + ROW_H / 2 + 2; return `<circle class="pn-pin" cx="${NODE_W}" cy="${y}" r="3"/><text class="pn-p" x="${NODE_W - 9}" y="${y + 4}" text-anchor="end">${esc(clip(port, 16))}</text>`; }).join('')}
+      </g>`);
+    });
+    parts.push('</svg>');
+    const types = WIRE_TYPES.filter(t => model.wires.some(w => w.type === t.id)).map(t => ({ id: t.id, label: t.label, color: PRINT_COLORS[t.id], custom: model.wires.some(w => w.type === t.id && w.custom) }));
+    return { svg: parts.join(''), nodes: ids.length, wires: model.wires.length, customWires: model.wires.filter(w => w.custom).length, types, width: maxX - minX, height: maxY - minY };
+  }
+
+  window.C4Schematic = { mount, staticSvg };
 })();

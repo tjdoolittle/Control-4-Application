@@ -176,6 +176,7 @@
       ['wiring', 'Wiring', p.connections.length],
       ['attention', 'Attention', issues],
       ['changes', 'Changes', changeCount(p)],
+      ['closeout', 'Closeout', ''],
       ['services', 'Services & drivers', p.services.length]
     ];
 
@@ -229,6 +230,7 @@
     else if (state.tab === 'wiring') panel.innerHTML = wiringPanel(p, rooms);
     else if (state.tab === 'attention') panel.innerHTML = attentionPanel(p, rooms);
     else if (state.tab === 'changes') panel.innerHTML = changesPanel(p);
+    else if (state.tab === 'closeout') { panel.innerHTML = closeoutPanel(p); renderPacketPreview(); }
     else panel.innerHTML = servicesPanel(p, rooms);
     panel.style.display = 'flex'; panel.style.flexDirection = 'column'; panel.style.gap = '12px';
   }
@@ -487,6 +489,123 @@
     return picker + head + sections.join('');
   }
 
+  // ---------- closeout packet ----------
+  const PK_KEY = 'c4sitesheet.packet.v1';
+  function pkSettings() {
+    let s = {};
+    try { s = JSON.parse(localStorage.getItem(PK_KEY) || '{}') || {}; } catch (e) {}
+    return Object.assign({ company: '', preparedBy: '', contact: '', logo: '', paper: 'letter', notes: {},
+      sections: window.C4Packet.SECTIONS.map(x => x[0]) }, s);
+  }
+  function pkSave(s) {
+    try { localStorage.setItem(PK_KEY, JSON.stringify(s)); }
+    catch (e) { toast('Settings could not be saved in this browser. The logo may be too large.'); }
+  }
+  function packetOptions(p) {
+    const st = pkSettings();
+    const partner = partnerOf(p);
+    return {
+      project: p, company: st.company, preparedBy: st.preparedBy, contact: st.contact, logo: st.logo,
+      notes: (st.notes || {})[keyOf(p)] || '', sections: st.sections, paper: st.paper,
+      today: new Date().toISOString(),
+      changes: partner ? window.C4Compare.compare(partner, p) : null,
+      schematic: window.C4Schematic.staticSvg(p, { key: keyOf(p), legacyKey: legacyKeyOf(p) })
+    };
+  }
+  function closeoutPanel(p) {
+    const st = pkSettings();
+    const partner = partnerOf(p);
+    return `<div class="pk-wrap">
+      <form class="pk-options" id="pk-form" onsubmit="return false">
+        <div class="eyebrow">Closeout packet</div>
+        <p class="section-note">A print-ready as-built for this project. Print it, or choose Save as PDF in the print dialog.</p>
+        <label class="field"><span>Company</span><input id="pk-company" value="${esc(st.company)}" placeholder="Your company name" maxlength="60"></label>
+        <div class="field"><span>Logo (optional)</span>
+          <div class="pk-logo-row">${st.logo ? `<img src="${esc(st.logo)}" alt="Current logo"><button type="button" class="btn btn-small" data-action="pk-logo-clear">Remove</button>` : ''}
+            <label class="btn btn-small" for="pk-logo">${st.logo ? 'Replace' : 'Choose image'}</label>
+            <input id="pk-logo" type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+          </div>
+        </div>
+        <label class="field"><span>Prepared by</span><input id="pk-by" value="${esc(st.preparedBy)}" placeholder="Technician name" maxlength="60"></label>
+        <label class="field"><span>Service contact (optional)</span><input id="pk-contact" value="${esc(st.contact)}" placeholder="Phone or email for service" maxlength="80"></label>
+        <label class="field"><span>Notes for this project (optional)</span><textarea id="pk-notes" maxlength="1200" placeholder="Anything the client or the next tech should know">${esc((st.notes || {})[keyOf(p)] || '')}</textarea></label>
+        <div class="field"><span>Include</span>
+          <div class="pk-checks">
+            ${window.C4Packet.SECTIONS.map(([id, label]) => {
+              const off = id === 'changes' && !partner;
+              return `<label class="${off ? 'disabled' : ''}"><input type="checkbox" data-pksec="${id}"${st.sections.includes(id) && !off ? ' checked' : ''}${off ? ' disabled' : ''}> ${esc(label)}${off ? ' <span class="dsub">(open an older backup on the Changes tab)</span>' : ''}</label>`;
+            }).join('')}
+          </div>
+        </div>
+        <label class="field"><span>Paper</span><select id="pk-paper"><option value="letter"${st.paper === 'letter' ? ' selected' : ''}>US Letter</option><option value="a4"${st.paper === 'a4' ? ' selected' : ''}>A4</option></select></label>
+        <button type="button" class="btn btn-primary pk-print-btn" data-action="pk-print">Print or save as PDF</button>
+      </form>
+      <div class="pk-preview${st.paper === 'a4' ? ' pk-a4' : ''}" id="pk-preview" aria-label="Packet preview"></div>
+    </div>`;
+  }
+  function fitPreview() {
+    const box = document.getElementById('pk-preview');
+    if (!box) return;
+    const avail = box.clientWidth - 24;
+    box.querySelectorAll('.pk-page').forEach(pg => {
+      pg.style.zoom = '';
+      const w = pg.offsetWidth;
+      pg.style.zoom = w > avail ? String(avail / w) : '';
+    });
+  }
+  function renderPacketPreview() {
+    const p = active();
+    const box = document.getElementById('pk-preview');
+    if (!p || !box) return;
+    box.innerHTML = window.C4Packet.render(packetOptions(p));
+    fitPreview();
+  }
+  function pageStyle(paper) {
+    const size = paper === 'a4' ? 'A4' : 'letter';
+    return `@page { size: ${size} portrait; margin: 0.55in 0.6in 0.6in;
+        @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt "IBM Plex Sans", system-ui, sans-serif; color: #6b7985; } }
+      @page landscape { size: ${size} landscape; margin: 0.45in 0.45in 0.5in; }`;
+  }
+  function printPacket() {
+    const p = active();
+    if (!p) return;
+    const o = packetOptions(p);
+    if (!o.sections.length) { toast('Pick at least one section to include'); return; }
+    let root = document.getElementById('pk-print-root');
+    if (!root) { root = document.createElement('div'); root.id = 'pk-print-root'; document.body.appendChild(root); }
+    root.className = o.paper === 'a4' ? 'pk-a4' : '';
+    root.innerHTML = window.C4Packet.render(o);
+    let st = document.getElementById('pk-page-style');
+    if (!st) { st = document.createElement('style'); st.id = 'pk-page-style'; document.head.appendChild(st); }
+    st.textContent = pageStyle(o.paper);
+    const prevTitle = document.title;
+    document.title = safeName(p) + '_as-built';   // becomes the suggested PDF file name
+    document.body.classList.add('pk-printing');
+    const done = () => { document.body.classList.remove('pk-printing'); document.title = prevTitle; window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    setTimeout(() => { window.print(); setTimeout(done, 500); }, 60);
+  }
+  let pkTimer = null;
+  function pkFieldChanged(e) {
+    const id = e.target.id;
+    const st = pkSettings();
+    if (id === 'pk-company') st.company = e.target.value;
+    else if (id === 'pk-by') st.preparedBy = e.target.value;
+    else if (id === 'pk-contact') st.contact = e.target.value;
+    else if (id === 'pk-notes') { st.notes = st.notes || {}; st.notes[state.activeKey] = e.target.value; }
+    else if (id === 'pk-paper') { st.paper = e.target.value; const box = document.getElementById('pk-preview'); if (box) box.classList.toggle('pk-a4', st.paper === 'a4'); }
+    else if (e.target.dataset && e.target.dataset.pksec) {
+      st.sections = Array.from(document.querySelectorAll('[data-pksec]')).filter(c => c.checked).map(c => c.dataset.pksec);
+      const keep = (pkSettings().sections || []).filter(x => x === 'changes' && !partnerOf(active()));
+      st.sections = st.sections.concat(keep);
+    }
+    else return false;
+    pkSave(st);
+    clearTimeout(pkTimer);
+    pkTimer = setTimeout(renderPacketPreview, 200);
+    return true;
+  }
+
   function servicesPanel(p, rooms) {
     const missing = (p.stats.missingDrivers || []).filter(f => !/^control4_agent_|^roomdevice/.test(f));
     return `<p class="section-note">Software drivers in the project: streaming services, agents, virtual sources and helpers. They have no hardware to inventory.</p>
@@ -517,6 +636,8 @@
     if (!p) return;
     if (t.dataset.action === 'csv') download(safeName(p) + '_inventory.csv', devicesCsv(p), 'text/csv');
     if (t.dataset.action === 'copy-csv') copy(devicesCsv(p), 'Inventory copied as CSV');
+    if (t.dataset.action === 'pk-print') { printPacket(); return; }
+    if (t.dataset.action === 'pk-logo-clear') { const st = pkSettings(); st.logo = ''; pkSave(st); renderPanel(p, roomMap(p)); return; }
     if (t.dataset.action === 'copy-changes' || t.dataset.action === 'changes-csv') {
       const o = partnerOf(p);
       if (!o) return;
@@ -529,6 +650,7 @@
   });
 
   document.addEventListener('input', e => {
+    if (/^pk-(company|by|contact|notes)$/.test(e.target.id)) { pkFieldChanged(e); return; }
     if (e.target.id !== 'search') return;
     state.search = e.target.value;
     const pos = e.target.selectionStart;
@@ -548,6 +670,16 @@
   $('#file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
   $('#compare-input').addEventListener('change', e => { loadFiles(e.target.files, { compareFor: state.activeKey }); e.target.value = ''; });
   document.addEventListener('change', e => {
+    if (e.target.id === 'pk-paper' || (e.target.dataset && e.target.dataset.pksec)) { pkFieldChanged(e); return; }
+    if (e.target.id === 'pk-logo') {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      if (f.size > 400 * 1024) { toast('That logo is over 400 KB. Use a smaller PNG or SVG.'); e.target.value = ''; return; }
+      const rd = new FileReader();
+      rd.onload = () => { const st = pkSettings(); st.logo = rd.result; pkSave(st); renderPanel(active(), roomMap(active())); };
+      rd.readAsDataURL(f);
+      return;
+    }
     if (e.target.id !== 'compare-select') return;
     state.compareWith[state.activeKey] = e.target.value;
     renderProject();
@@ -561,6 +693,8 @@
     e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
     if (e.dataTransfer && e.dataTransfer.files.length) loadFiles(e.dataTransfer.files);
   });
+
+  window.addEventListener('resize', () => { if (state.tab === 'closeout') fitPreview(); });
 
   // ---------- start ----------
   const saved = restore();
