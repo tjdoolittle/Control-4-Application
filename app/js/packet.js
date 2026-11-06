@@ -10,6 +10,7 @@
     ['inventory', 'Inventory by room'],
     ['wiring', 'Wiring list'],
     ['network', 'Network sheet'],
+    ['programming', 'Programming'],
     ['issues', 'Open issues'],
     ['changes', 'Changes since previous backup'],
     ['signoff', 'Notes and sign-off']
@@ -184,6 +185,42 @@
       </tbody></table>` : ''}`);
   }
 
+  function programming(o) {
+    const g = o.project.programming;
+    const P = window.C4Programming;
+    if (!g || g.error || !P) return '';
+    const ev = P.eventsForPrint(o.project);
+    const lines = (ls, d) => ls.map(l => `<div class="pk-pline" style="padding-left:${d * 16}px">${l.type === 'if' ? '<b>If</b> ' : l.type === 'loop' ? '<b>Loop</b> ' : ''}${esc(l.text)}${l.enabled ? '' : ' <span class="pk-dim">(disabled)</span>'}</div>${lines(l.children, d + 1)}`).join('');
+    const parts = [];
+    if (ev.length) {
+      parts.push(`<div class="pk-h3">When this happens, do this</div>
+        <table class="pk-table"><thead><tr><th style="width:42%">When</th><th>Do</th></tr></thead><tbody>
+        ${ev.map(e => `<tr><td class="pk-strong">${esc(e.when)}</td><td>${lines(e.lines, 0)}</td></tr>`).join('')}
+        </tbody></table>`);
+    }
+    if (g.scenes.length) {
+      parts.push(`<div class="pk-h3">Lighting scenes</div>
+        <table class="pk-table"><thead><tr><th>Scene</th><th>Load</th><th>Level</th><th>Ramp</th></tr></thead><tbody>
+        ${g.scenes.map(sc => sc.members.map((m, i) => `<tr${i ? ' class="pk-cont"' : ''}><td class="pk-strong">${i ? '' : esc(sc.name)}</td><td>${esc(m.name)}${m.room ? `<span class="pk-dim"> · ${esc(m.room)}</span>` : ''}</td><td>${m.level == null ? 'unchanged' : m.level + '%'}</td><td>${esc(P.fmtMs(m.rateMs))}</td></tr>`).join('')).join('')}
+        </tbody></table>`);
+    }
+    if (g.keypads.length) {
+      parts.push(`<div class="pk-h3">Keypads</div>
+        <table class="pk-table"><thead><tr><th>Keypad</th><th>Button</th><th>Behavior</th><th>LED</th></tr></thead><tbody>
+        ${g.keypads.map(k => k.buttons.map((b, i) => `<tr${i ? ' class="pk-cont"' : ''}><td class="pk-strong">${i ? '' : esc(k.name) + (k.room ? `<div class="pk-dim">${esc(k.room)}</div>` : '')}</td><td>${esc(b.engraving || b.name)}</td><td>${esc(b.behavior)}</td><td>${esc(b.led)}</td></tr>`).join('')).join('')}
+        </tbody></table>`);
+    }
+    if (g.timers.length) {
+      parts.push(`<div class="pk-h3">Timers</div><table class="pk-table pk-compact"><tbody>
+        ${g.timers.map(t => `<tr><td class="pk-strong">${esc(t.name)}</td><td>${esc(P.fmtMs(t.ms))}${t.repeating ? ', repeating' : ''}</td></tr>`).join('')}</tbody></table>`);
+    }
+    if (g.customScreens.length) {
+      parts.push(`<div class="pk-h3">Custom buttons</div><table class="pk-table pk-compact"><tbody>
+        ${g.customScreens.map(sc => `<tr><td class="pk-strong">${esc(sc.name)}<span class="pk-dim"> · ${esc(sc.room)}</span></td><td>${sc.buttons.map(b => esc(b.name)).join(', ')}</td></tr>`).join('')}</tbody></table>`);
+    }
+    return page(o, 'Programming', parts.length ? parts.join('') : '<p class="pk-dim">No programming in this project.</p>');
+  }
+
   function issues(o) {
     const p = o.project;
     const rooms = Object.fromEntries(p.rooms.map(r => [r.id, r.name]));
@@ -236,7 +273,7 @@
 
   function render(o) {
     const on = id => o.sections.includes(id) && (id !== 'changes' || o.changes);
-    const builders = { overview, schematic, inventory, wiring, network, issues, changes, signoff };
+    const builders = { overview, schematic, inventory, wiring, network, programming, issues, changes, signoff };
     const order = SECTIONS.map(s => s[0]).filter(id => id !== 'cover' && on(id));
     const toc = order.map(id => SECTIONS.find(s => s[0] === id)[1]);
     return (on('cover') ? cover(o, toc) : '') + order.map(id => builders[id](o)).join('');

@@ -76,7 +76,14 @@ function createC4PParser(JSZipLib, DOMParserLib) {
       };
     }
     const proxies = all(root, 'proxy').map(p => ({ id: p.getAttribute('proxybindingid'), name: p.getAttribute('name'), type: (p.textContent || '').trim() }));
+    const events = {};
+    const evRoot = kid(root, 'events') || kid(kid(root, 'config'), 'events');
+    for (const ev of kids(evRoot, 'event')) {
+      const id = txt(ev, 'id');
+      if (id) events[id] = { name: txt(ev, 'name'), description: txt(ev, 'description') };
+    }
     return {
+      events,
       file,
       manufacturer: txt(root, 'manufacturer'),
       model: txt(root, 'model'),
@@ -190,6 +197,193 @@ function createC4PParser(JSZipLib, DOMParserLib) {
     return '';
   }
 
+  // ---------- programming ----------
+  // Composer stores each programming line with a readable description (<display>), where the word
+  // NAME stands for the device the line acts on. Event names come from the source device's driver.
+  const CODE_TYPE = { '1': 'action', '2': 'if', '3': 'loop' };
+
+  function xmlOf(text) {
+    if (!text || text.indexOf('<') < 0) return null;
+    try {
+      const d = new DOMParserLib().parseFromString('<wrap>' + text + '</wrap>', 'text/xml');
+      return d.documentElement && !all(d.documentElement, 'parsererror').length ? d.documentElement : null;
+    } catch (e) { return null; }
+  }
+
+  function parseProgramming(root, items, drivers, nameOf, ownerOf, devById) {
+    const agentBy = file => Object.values(items).find(i => i.type === TYPE.AGENT && (i.file || '').toLowerCase() === file);
+    const label = id => {
+      const it = items[id];
+      if (!it) return 'device ' + id;
+      const own = ownerOf(id);
+      if (own && devById[own.id]) return devById[own.id].name;
+      return (it.name || '').replace(/\s+/g, ' ').trim();
+    };
+    const roomOfItem = id => {
+      const it = items[id];
+      if (!it) return '';
+      const r = it.type === TYPE.ROOM ? it : (it.path || []).filter(p => p.type === TYPE.ROOM).pop();
+      return r ? (r.name || '') : '';
+    };
+
+    // Lighting scenes (Advanced Lighting agent)
+    const scenes = [];
+    const adv = agentBy('control4_agent_adv_lighting.c4i');
+    const advXml = adv && xmlOf(adv.stateText);
+    if (advXml) {
+      for (const sc of all(advXml, 'AdvScene')) {
+        const members = all(sc, 'AdvSceneMember').map(m => {
+          const el0 = all(m, 'element')[0];
+          return {
+            deviceId: txt(m, 'device_id'),
+            name: label(txt(m, 'device_id')),
+            room: roomOfItem(txt(m, 'device_id')),
+            level: el0 && txt(el0, 'levelEnabled') !== 'False' ? Number(txt(el0, 'level')) : null,
+            rateMs: el0 ? Number(txt(el0, 'levelRate')) || 0 : 0,
+            delayMs: el0 ? Number(txt(el0, 'delay')) || 0 : 0,
+            color: el0 && txt(el0, 'colorEnabled') === 'True'
+          };
+        });
+        scenes.push({ id: txt(sc, 'scene_id'), name: txt(sc, 'name'), members, tracking: txt(sc, 'track_mode') !== '0' });
+      }
+    }
+    const sceneName = id => { const sc = scenes.find(x => x.id === String(id)); return sc ? sc.name : ''; };
+
+    // Timers
+    const timers = [];
+    const tim = agentBy('control4_agent_timer.c4i');
+    const timXml = tim && xmlOf(tim.stateText);
+    if (timXml) {
+      for (const t of all(timXml, 'timer')) {
+        timers.push({ id: t.getAttribute('id'), name: t.getAttribute('name'), ms: Number(t.getAttribute('timeval')) || 0, repeating: t.getAttribute('repeating') === '1' });
+      }
+    }
+
+    // Custom buttons (Navigator screens)
+    const customScreens = [];
+    const cb = agentBy('control4_agent_custombuttons.c4i');
+    const cbXml = cb && xmlOf(cb.stateText);
+    const customButton = {};
+    if (cbXml) {
+      for (const sc of all(cbXml, 'screen')) {
+        const screen = { room: roomOfItem(sc.getAttribute('roomid')) || label(sc.getAttribute('roomid')), name: txt(sc, 'name'), buttons: [] };
+        for (const b of all(sc, 'button')) {
+          const bt = { id: txt(b, 'id'), name: txt(b, 'name') };
+          screen.buttons.push(bt);
+          customButton[bt.id] = { screen: screen.name, room: screen.room, name: bt.name };
+        }
+        customScreens.push(screen);
+      }
+    }
+
+    // Keypads: any item whose state carries a button list
+    const keypads = [];
+    const keypadById = {};
+    for (const it of Object.values(items)) {
+      if (!it.stateText || it.stateText.indexOf('BUTTON_LIST_INFO') < 0) continue;
+      const kx = xmlOf(it.stateText);
+      if (!kx) continue;
+      const behaviors = {}, leds = {};
+      all(kx, 'BTN_BEHAVIOR').forEach(b => { behaviors[txt(b, 'BUTTON_ID')] = txt(b, 'NAME'); });
+      all(kx, 'LED_BEHAVIOR').forEach(b => { leds[txt(b, 'BUTTON_ID')] = txt(b, 'NAME'); });
+      const buttons = all(kx, 'KEYPAD_BUTTON_INFO').map(b => ({
+        id: txt(b, 'BUTTON_ID'),
+        name: txt(b, 'NAME'),
+        engraving: txt(b, 'ENGRAVING'),
+        behavior: behaviors[txt(b, 'BUTTON_BEHAVIOR')] || (txt(b, 'BUTTON_BEHAVIOR') ? 'Behavior ' + txt(b, 'BUTTON_BEHAVIOR') : ''),
+        led: leds[txt(b, 'LED_BEHAVIOR')] || '',
+        onColor: txt(b, 'ON_COLOR'),
+        offColor: txt(b, 'OFF_COLOR')
+      }));
+      if (!buttons.length) continue;   // dimmers carry an empty button list
+      const own = label(it.id), raw = (it.name || '').replace(/\s+/g, ' ').trim();
+      const kp = { id: it.id, name: raw && raw !== own && !own.includes(raw) ? `${own} (${raw})` : own, room: roomOfItem(it.id), buttons };
+      keypads.push(kp);
+      keypadById[it.id] = kp;
+    }
+
+    // Event programming
+    function lines(codeParent) {
+      const out = [];
+      for (const ci of kids(kid(codeParent, 'subitems'), 'codeitem')) {
+        const target = txt(ci, 'device');
+        let text = txt(ci, 'display');
+        const targetName = target && target !== '0' ? label(target) : '';
+        if (targetName) text = text.replace(/\bNAME\b/g, targetName);
+        text = text.replace(/"SCENE_ID=(\d+)"/g, (m, n) => sceneName(n) ? `"${sceneName(n)}"` : m);
+        const cmd = all(ci, 'devicecommand')[0];
+        out.push({
+          type: CODE_TYPE[txt(ci, 'type')] || 'other',
+          text: text || (cmd ? txt(cmd, 'command') : ''),
+          command: cmd ? txt(cmd, 'command') : '',
+          targetId: target && target !== '0' ? target : '',
+          targetName,
+          enabled: txt(ci, 'enabled') !== 'False',
+          children: lines(ci)
+        });
+      }
+      return out;
+    }
+
+    const events = [];
+    for (const ev of kids(kid(root, 'event_mgr'), 'event')) {
+      const top = kid(ev, 'codeitem');
+      if (!top || !kids(kid(top, 'subitems'), 'codeitem').length) continue;
+      const srcId = txt(ev, 'deviceid'), evId = txt(ev, 'eventid');
+      const it = items[srcId];
+      const srcName = label(srcId);
+      let kind = 'device', when = '', known = true;
+      const file = it ? (it.file || '').toLowerCase() : '';
+      if (it && it.type === TYPE.ROOM) {
+        kind = 'room';
+        when = `Room event #${evId} in ${srcName}`;
+        known = false;
+      } else if (file === 'control4_agent_custombuttons.c4i' && customButton[evId]) {
+        kind = 'agent';
+        const b = customButton[evId];
+        when = `When the custom button "${b.name}" on screen "${b.screen}"${b.room ? ' in ' + b.room : ''} is pressed`;
+      } else if (file === 'control4_agent_timer.c4i' && timers.find(t => String(100000 + Number(t.id)) === evId)) {
+        kind = 'agent';
+        const t = timers.find(x => String(100000 + Number(x.id)) === evId);
+        when = `When the timer "${t.name}" fires`;
+      } else {
+        const own = ownerOf(srcId);
+        const drv = (it && drivers[it.file]) || (own && drivers[own.file]) || null;
+        const def = drv && drv.events && drv.events[evId];
+        if (def && (def.description || def.name)) {
+          when = def.description ? def.description.replace(/\bNAME\b/g, srcName).replace(/\s*BTN_ID\s*/g, ' ').replace(/\s+/g, ' ').trim() : `When ${srcName}: ${def.name}`;
+          if (!/^when\b/i.test(when)) when = `When ${srcName}: ${when}`;
+        } else {
+          when = `${srcName} event #${evId}`;
+          known = false;
+        }
+        if (it && it.type === TYPE.AGENT) kind = 'agent';
+      }
+      events.push({
+        key: `${srcId}:${evId}`,
+        sourceId: srcId, sourceName: srcName, sourceFile: it ? it.file : '',
+        room: roomOfItem(srcId), kind, eventId: evId, when, known,
+        isKeypad: !!keypadById[srcId],
+        lines: lines(top)
+      });
+    }
+
+    // Variables people made (skip Composer's own hidden or diagnostic ones)
+    const variables = [];
+    for (const v of all(kid(root, 'variables'), 'variable')) {
+      const name = v.getAttribute('name') || '';
+      if (v.getAttribute('hidden') === '1' || /^CP-/.test(name)) continue;
+      const T = { '0': 'String', '1': 'String', '2': 'Boolean', '3': 'Number', '4': 'Number', '5': 'Device', '6': 'Media', '7': 'Date', '8': 'Time' };
+      variables.push({ name, owner: label(v.getAttribute('deviceid')), type: T[v.getAttribute('type')] || 'Value', value: (v.textContent || '').trim(), readonly: v.getAttribute('readonly') === '1' });
+    }
+
+    const countLines = ls => ls.reduce((n, l) => n + 1 + countLines(l.children), 0);
+    return {
+      events, keypads, scenes, timers, customScreens, variables,
+      lineCount: events.reduce((n, e) => n + countLines(e.lines), 0)
+    };
+  }
+
   // ---------- main ----------
   async function parse(buffer, fileName) {
     const zip = await JSZipLib.loadAsync(buffer);
@@ -227,6 +421,8 @@ function createC4PParser(JSZipLib, DOMParserLib) {
         props: stateProps(txt(el, 'state')),
         children: []
       };
+      const rawState = txt(el, 'state');
+      if (it.type === TYPE.AGENT || rawState.indexOf('BUTTON_LIST_INFO') >= 0) it.stateText = rawState;
       items[it.id] = it; order.push(it.id);
       if (parent) parent.children.push(it.id);
       const nextPath = (it.type === TYPE.BUILDING || it.type === TYPE.FLOOR || it.type === TYPE.ROOM) ? path.concat([{ type: it.type, name: it.name, id: it.id }]) : path;
@@ -415,6 +611,10 @@ function createC4PParser(JSZipLib, DOMParserLib) {
         to: { id: c.to.id, name: nameOf(c.to.id), port: c.to.port } });
     }
 
+    let programming = null;
+    try { programming = parseProgramming(root, items, drivers, nameOf, ownerOf, devById); }
+    catch (e) { programming = { error: 'The programming in this backup could not be read: ' + (e.message || e) }; }
+
     return {
       fileName: fileName || '',
       backupDate,
@@ -430,6 +630,7 @@ function createC4PParser(JSZipLib, DOMParserLib) {
       devices,
       services,
       connections: wiring,
+      programming,
       stats: {
         items: order.length,
         drivers: Object.keys(drivers).length,

@@ -11,7 +11,8 @@
     search: '',
     category: 'All',
     control: 'All',
-    compareWith: {}    // active project key -> key of the backup it is compared with
+    compareWith: {},   // active project key -> key of the backup it is compared with
+    pg: { search: '', device: '', naming: null }   // Programming tab view
   };
 
   const $ = sel => document.querySelector(sel);
@@ -173,6 +174,7 @@
       ['devices', 'Devices', p.devices.length],
       ['network', 'Network', ipCount + zbCount],
       ['schematic', 'Schematic', ''],
+      ['programming', 'Programming', p.programming && !p.programming.error ? p.programming.events.length + p.programming.scenes.length : ''],
       ['wiring', 'Wiring', p.connections.length],
       ['attention', 'Attention', issues],
       ['changes', 'Changes', changeCount(p)],
@@ -230,6 +232,7 @@
     else if (state.tab === 'wiring') panel.innerHTML = wiringPanel(p, rooms);
     else if (state.tab === 'attention') panel.innerHTML = attentionPanel(p, rooms);
     else if (state.tab === 'changes') panel.innerHTML = changesPanel(p);
+    else if (state.tab === 'programming') panel.innerHTML = window.C4Programming.render(p, state.pg);
     else if (state.tab === 'closeout') { panel.innerHTML = closeoutPanel(p); renderPacketPreview(); }
     else panel.innerHTML = servicesPanel(p, rooms);
     panel.style.display = 'flex'; panel.style.flexDirection = 'column'; panel.style.gap = '12px';
@@ -620,7 +623,13 @@
   document.addEventListener('click', e => {
     const t = e.target.closest('button');
     if (!t) return;
-    if (t.dataset.key) { state.activeKey = t.dataset.key; state.search = ''; state.category = 'All'; state.control = 'All'; render(); return; }
+    if (t.dataset.key) { state.activeKey = t.dataset.key; state.search = ''; state.category = 'All'; state.control = 'All'; state.pg = { search: '', device: '', naming: null }; render(); return; }
+    if (t.dataset.pg === 'name') {
+      state.pg.naming = t.dataset.event; renderPanel(active(), roomMap(active()));
+      const inp = document.getElementById('pg-name-input'); if (inp) { inp.focus(); inp.select(); }
+      return;
+    }
+    if (t.dataset.pg === 'save-name') { savePgName(); return; }
     if (t.dataset.remove) {
       try { localStorage.removeItem('c4sitesheet.schematic.v1.' + t.dataset.remove); } catch (err) {}
       state.projects = state.projects.filter(p => keyOf(p) !== t.dataset.remove);
@@ -649,7 +658,27 @@
     if (t.dataset.action === 'json') download(safeName(p) + '_sitesheet.json', JSON.stringify(p, null, 2), 'application/json');
   });
 
+  function savePgName() {
+    const inp = document.getElementById('pg-name-input');
+    if (!inp) return;
+    window.C4Programming.saveName(inp.dataset.event, inp.value.trim());
+    state.pg.naming = null;
+    renderPanel(active(), roomMap(active()));
+    toast(inp.value.trim() ? 'Name saved for every project' : 'Name removed');
+  }
+  document.addEventListener('keydown', e => {
+    if (e.target.id !== 'pg-name-input') return;
+    if (e.key === 'Enter') { e.preventDefault(); savePgName(); }
+    if (e.key === 'Escape') { state.pg.naming = null; renderPanel(active(), roomMap(active())); }
+  });
   document.addEventListener('input', e => {
+    if (e.target.id === 'pg-search') {
+      state.pg.search = e.target.value;
+      const pos = e.target.selectionStart;
+      renderPanel(active(), roomMap(active()));
+      const s2 = document.getElementById('pg-search'); if (s2) { s2.focus(); try { s2.setSelectionRange(pos, pos); } catch (err) {} }
+      return;
+    }
     if (/^pk-(company|by|contact|notes)$/.test(e.target.id)) { pkFieldChanged(e); return; }
     if (e.target.id !== 'search') return;
     state.search = e.target.value;
@@ -671,6 +700,7 @@
   $('#compare-input').addEventListener('change', e => { loadFiles(e.target.files, { compareFor: state.activeKey }); e.target.value = ''; });
   document.addEventListener('change', e => {
     if (e.target.id === 'pk-paper' || (e.target.dataset && e.target.dataset.pksec)) { pkFieldChanged(e); return; }
+    if (e.target.id === 'pg-device') { state.pg.device = e.target.value; renderPanel(active(), roomMap(active())); return; }
     if (e.target.id === 'pk-logo') {
       const f = e.target.files && e.target.files[0];
       if (!f) return;

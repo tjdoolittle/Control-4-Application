@@ -26,6 +26,7 @@ Screenshots use real project backups with client names, locations, MACs and Zigb
 | **Schematic** | Every wired device as a block with its real port names, laid out left to right by signal flow. Drag blocks, pan and zoom, click a block to trace its wires, filter by wire type. Add your own blocks (a network switch, a patch panel) and draw wires Composer doesn't know about, then rename their ports. Layout and added wires are saved per project. Export as SVG. |
 | **Changes** | Open two backups of the same job and see what changed between them: devices added or removed, IP, MAC, firmware and driver changes, renames and room moves, and rebound wiring. Copy the summary for a service ticket or download it as CSV. |
 | **Closeout** | A print-ready as-built packet: cover with your company, logo and service contact, system overview with notes, the schematic on a landscape page, inventory, wiring, network, open issues, changes since the previous backup, and a sign-off page. Choose sections and paper size, then print or save as PDF. |
+| **Programming** | Every programmed event and the lines it runs (including conditionals and disabled lines), lighting scenes with levels and ramp times, keypad buttons with behaviors and LED colors, timers, custom buttons and variables. Filter by device or search. Room events aren't named in a backup, so you can name one once and it applies to every project. |
 | **Wiring** | IR emitters and serial runs by controller port, plus AV connections from each source output to the input it feeds. Virtual AV Path Setters are stitched through so each line shows the real input. |
 | **Attention** | Devices offline when the backup was taken, duplicate IPs, IR or serial drivers with no port bound, IP drivers with no address. |
 | **Services & drivers** | Streaming services, agents, virtual sources and other software drivers. |
@@ -57,6 +58,7 @@ app/js/parser.js       the .c4p parser; works in the browser and in Node
 app/js/app.js          the interface
 app/js/schematic.js    the schematic builder
 app/js/compare.js      compares two backups; works in the browser and in Node
+app/js/programming.js  the Programming tab
 app/js/packet.js       builds the closeout packet pages
 app/js/sample.js       an invented example project shown before any file is opened
 desktop/               Windows/Mac/Linux desktop build (Neutralinojs)

@@ -35,5 +35,36 @@ window.C4_SAMPLE = {
     { kind: 'av', classes: ['HDMI'], via: '', from: { id: 'd5', name: 'Streaming Player', port: 'AV Out' }, to: { id: 'd3', name: 'Family Room Receiver', port: 'INPUT Media Player' } },
     { kind: 'av', classes: ['HDMI'], via: '', from: { id: 'd3', name: 'Family Room Receiver', port: 'HDMI Out' }, to: { id: 'd6', name: 'Family Room TV', port: 'HDMI 1' } }
   ],
+  programming: {
+    events: [
+      { key: 'd9:1', sourceId: 'd9', sourceName: 'Island Pendants', sourceFile: 'keypad_proxy.c4i', room: 'Kitchen', kind: 'device', eventId: '1', when: 'When Island Pendants top button is pushed', known: true, isKeypad: true,
+        lines: [
+          { type: 'action', text: 'Toggle the Island Pendants', command: 'TOGGLE', targetId: 'd9', targetName: 'Island Pendants', enabled: true, children: [] },
+          { type: 'if', text: 'If the Family Room TV is on', command: '', targetId: 'd6', targetName: 'Family Room TV', enabled: true, children: [
+            { type: 'action', text: 'Set volume to 30 on the Family Room Receiver', command: 'SET_VOLUME_LEVEL', targetId: 'd3', targetName: 'Family Room Receiver', enabled: true, children: [] }
+          ] }
+        ] },
+      { key: 'r2:2084', sourceId: 'r2', sourceName: 'Family Room', sourceFile: 'roomdevice.c4i', room: 'Family Room', kind: 'room', eventId: '2084', when: 'Room event #2084 in Family Room', known: false, isKeypad: false,
+        lines: [ { type: 'action', text: 'Activate Lighting Scene "Movie Time"', command: 'ACTIVATE_SCENE', targetId: '', targetName: '', enabled: true, children: [] } ] },
+      { key: 'a1:100001', sourceId: 'a1', sourceName: 'Timer', sourceFile: 'control4_agent_timer.c4i', room: '', kind: 'agent', eventId: '100001', when: 'When the timer "Porch lights off" fires', known: true, isKeypad: false,
+        lines: [
+          { type: 'action', text: 'Turn off the Cans', command: 'OFF', targetId: 'd8', targetName: 'Cans', enabled: true, children: [] },
+          { type: 'action', text: 'Turn off the Island Pendants', command: 'OFF', targetId: 'd9', targetName: 'Island Pendants', enabled: false, children: [] }
+        ] }
+    ],
+    keypads: [ { id: 'd9', name: 'Island Pendants', room: 'Kitchen', buttons: [
+      { id: '0', name: 'Button 1', engraving: 'Pendants', behavior: 'Toggle Load', led: 'Follow Load', onColor: '0000ff', offColor: '000000' },
+      { id: '1', name: 'Button 2', engraving: 'Movie', behavior: 'Keypad', led: 'Programmed', onColor: 'ffffff', offColor: '000000' },
+      { id: '2', name: 'Button 3', engraving: 'All Off', behavior: 'Keypad', led: 'Push/Release', onColor: 'ff0000', offColor: '000000' }
+    ] } ],
+    scenes: [ { id: '0', name: 'Movie Time', tracking: false, members: [
+      { deviceId: 'd8', name: 'Cans', room: 'Family Room', level: 10, rateMs: 3000, delayMs: 0, color: false },
+      { deviceId: 'd9', name: 'Island Pendants', room: 'Kitchen', level: 0, rateMs: 3000, delayMs: 0, color: false }
+    ] } ],
+    timers: [ { id: '1', name: 'Porch lights off', ms: 1800000, repeating: false } ],
+    customScreens: [],
+    variables: [],
+    lineCount: 6
+  },
   stats: { items: 64, drivers: 30, missingDrivers: [] }
 };

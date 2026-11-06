@@ -24,6 +24,7 @@
     </a>
     <nav class="nav-links" aria-label="Page">
       <a href="#schematic">Schematic</a>
+      <a href="#programming">Programming</a>
       <a href="#compare">Compare</a>
       <a href="#inventory">Inventory</a>
       <a href="#closeout">Closeout</a>
@@ -38,7 +39,7 @@
     <div class="wrap hero-text">
       <p class="eyebrow">For Control4 dealers and programmers</p>
       <h1><span>Open a project backup.</span> <span>Get the as-built.</span></h1>
-      <p class="lede">C4 Site Sheet reads a Composer <span class="mono">.c4p</span> file and lays out every device, port and wire in the system: a signal-flow schematic, an inventory by room, the IR and serial map, the network sheet, a list of what's broken, and a closeout packet ready to print.</p>
+      <p class="lede">C4 Site Sheet reads a Composer <span class="mono">.c4p</span> file and lays out every device, port and wire in the system: a signal-flow schematic, an inventory by room, the IR and serial map, the network sheet, the programming, a list of what's broken, and a closeout packet ready to print.</p>
       <div class="cta">
         <a class="btn btn-primary" href="app/">Open the web app</a>
         <a class="btn" href="downloads/C4SiteSheet-win_x64.exe" download>Download for Windows <span class="btn-note">2.7 MB</span></a>
@@ -88,6 +89,23 @@
     <figure class="shot">
       <img src="assets/screenshots/crop-builder.webp" width="1400" height="949" loading="lazy" alt="A hand-added network switch block with seven ports wired to three Control4 CORE controllers, two WattBoxes and an amplifier, drawn as dashed purple network wires.">
       <figcaption>A network switch added by hand, wired to the controllers, WattBoxes and amp.</figcaption>
+    </figure>
+  </section>
+
+  <section id="programming" class="feature feature-flip wrap">
+    <div class="feature-text">
+      <p class="eyebrow">Programming</p>
+      <h2>What every button and event does</h2>
+      <p>The <b>Programming</b> tab reads the project's programming without opening Composer: each event and the lines it runs, nested conditionals included, plus lighting scenes with levels and ramp times, keypad buttons with their behaviors and LED colors, timers, custom buttons and variables.</p>
+      <ul class="ticks">
+        <li>Pick a device to see every event and scene that touches it</li>
+        <li>Device and scene names fill in where Composer stores only an ID</li>
+        <li>Room events have no names in a backup: name one once and it reads that way in every project</li>
+      </ul>
+    </div>
+    <figure class="shot">
+      <img src="assets/screenshots/programming.webp" width="1600" height="1500" loading="lazy" alt="Programming tab: events grouped by room with the actions each one runs, such as activating the Play Movie lighting scene, and the two lighting scenes with their levels and ramp times.">
+      <figcaption>A media room's events, scenes and custom buttons, read straight from its backup.</figcaption>
     </figure>
   </section>
 
