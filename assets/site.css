@@ -81,7 +81,8 @@ p { margin: 0; }
 /* hero */
 .hero { padding-block: 72px 0; background: linear-gradient(var(--bg) 0, var(--bg) 62%, var(--band) 62%, var(--band) 100%); }
 .hero-text { max-width: 1180px; }
-.hero-text h1 { max-width: 15ch; }
+.hero-text h1 { font-size: clamp(28px, 6.6vw, 68px); }
+.hero-text h1 span { display: block; white-space: nowrap; }
 .lede { margin-top: 22px; max-width: 62ch; font-size: 19px; color: var(--ink-2); }
 .window { margin: 56px 0 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; box-shadow: 0 24px 60px -24px rgba(8, 22, 38, .45); }
 .window-bar { display: flex; align-items: center; gap: 7px; padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line); font-size: 13px; }
