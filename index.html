@@ -24,6 +24,7 @@
     </a>
     <nav class="nav-links" aria-label="Page">
       <a href="#schematic">Schematic</a>
+      <a href="#compare">Compare</a>
       <a href="#inventory">Inventory</a>
       <a href="#download">Download</a>
       <a href="https://github.com/tjdoolittle/control-4-application">GitHub</a>
@@ -89,7 +90,24 @@
     </figure>
   </section>
 
-  <section id="inventory" class="feature wrap">
+  <section id="compare" class="feature wrap">
+    <div class="feature-text">
+      <p class="eyebrow">Compare</p>
+      <h2>What changed since the last visit</h2>
+      <p>Open two backups of the same job and the <b>Changes</b> tab lists every difference: devices added or removed, IP and MAC changes, firmware and driver updates, renames and room moves, and every emitter or input that was rebound.</p>
+      <ul class="ticks">
+        <li>Always reads oldest to newest, using the time each backup was made</li>
+        <li>A port that now feeds something else shows as one rebind, not a remove and an add</li>
+        <li>Copy a plain-text summary straight into a service ticket, or download it as CSV</li>
+      </ul>
+    </div>
+    <figure class="shot">
+      <img src="assets/screenshots/changes.webp" width="1600" height="1303" loading="lazy" alt="Changes between two backups of one project: one device added, one removed, a renamed Blu-ray, a controller whose IP moved, and an IR output rebound from the cable box to the Kaleidescape.">
+      <figcaption>Two backups of one job, six months apart. Example changes, names altered.</figcaption>
+    </figure>
+  </section>
+
+  <section id="inventory" class="feature feature-flip wrap">
     <div class="feature-text">
       <p class="eyebrow">Inventory</p>
       <h2>Every device, room by room</h2>

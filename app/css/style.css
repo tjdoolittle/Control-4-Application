@@ -159,6 +159,7 @@ button, input, select { font: inherit; color: inherit; }
 .export-row { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* stat strip: reads like a rack unit's front panel */
+.compare-stats .stat .v { font-size: 22px; }
 .stats {
   display: grid; grid-template-columns: repeat(6, minmax(0, 1fr));
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
@@ -270,6 +271,26 @@ h2.section { font-size: 18px; font-weight: 600; margin-top: 8px; }
   background: var(--ink); color: var(--bg); padding: 9px 16px; border-radius: var(--r); font-size: 14px; z-index: 50;
 }
 
+
+/* ---------- changes ---------- */
+.compare-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; justify-content: space-between; }
+.compare-pick { flex: 1 1 320px; min-width: 0; max-width: 560px; }
+.compare-pick select { width: 100%; }
+.compare-head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; margin-top: 4px; }
+.compare-span { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; }
+.compare-span .cv { font-family: var(--font-display); font-weight: 600; font-size: 20px; font-variant-numeric: tabular-nums; }
+.compare-arrow { font-size: 22px; color: var(--ink-3); }
+.compare-warn { padding: 8px 12px; background: var(--warn-soft); border-radius: var(--r); }
+.compare-empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 18px; display: flex; flex-direction: column; gap: 6px; }
+.compare-empty .section { margin-top: 0; }
+.chg-add-t { color: var(--good); } .chg-del-t { color: var(--bad); } .chg-mod-t { color: var(--warn); }
+td.chg { width: 28px; text-align: center; font-family: var(--font-mono); font-weight: 600; font-size: 16px; padding-right: 0; }
+td.chg-add { color: var(--good); } td.chg-del { color: var(--bad); } td.chg-mod { color: var(--warn); }
+td.before { color: var(--ink-3); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--bad) 55%, transparent); }
+td.before .empty-cell, td.after .empty-cell { text-decoration: none; }
+td.after { color: var(--ink); font-weight: 500; }
+tr.cont td { border-top: 0; padding-top: 0; }
+tr:has(+ tr.cont) td { border-bottom: 0; }
 
 /* ---------- schematic ---------- */
 .sch-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }

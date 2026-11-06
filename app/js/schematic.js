@@ -191,7 +191,8 @@
   // ---------- mount ----------
   function mount(container, project, opts) {
     const key = opts.key;
-    let saved = load(key) || {};
+    // Layouts saved before backups were keyed by date live under the older key
+    let saved = load(key) || (opts.legacyKey && load(opts.legacyKey)) || {};
     saved.pos = saved.pos || {}; saved.custom = saved.custom || []; saved.hidden = saved.hidden || []; saved.blocks = saved.blocks || [];
     const show = { control: true, video: true, audio: true, network: true, other: true };
     let newType = 'hdmi';

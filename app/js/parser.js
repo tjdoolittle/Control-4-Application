@@ -196,6 +196,12 @@ function createC4PParser(JSZipLib, DOMParserLib) {
     const pxFile = zip.file('project.xml');
     if (!pxFile) throw new Error('This file has no project.xml inside. Make sure it is a Composer project backup (.c4p).');
     const pxText = await pxFile.async('string');
+    // Composer writes project.xml when the backup is made, so its zip timestamp is the backup time
+    let backupDate = '';
+    try {
+      const d = pxFile.date;
+      if (d && !isNaN(d)) backupDate = d.toISOString().slice(0, 16).replace('T', ' '); // JSZip reads the zip's local clock time as UTC
+    } catch (e) {}
     const doc = new DOMParserLib().parseFromString(pxText, 'text/xml');
     const root = doc.documentElement;
     if (!root || root.nodeName !== 'currentstate') throw new Error('project.xml could not be read. The backup may be damaged.');
@@ -411,6 +417,7 @@ function createC4PParser(JSZipLib, DOMParserLib) {
 
     return {
       fileName: fileName || '',
+      backupDate,
       project: {
         name: sys ? txt(sys, 'name') : '',
         city: txt(projectData, 'city_name'),

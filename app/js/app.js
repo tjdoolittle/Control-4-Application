@@ -10,12 +10,15 @@
     tab: 'devices',
     search: '',
     category: 'All',
-    control: 'All'
+    control: 'All',
+    compareWith: {}    // active project key -> key of the backup it is compared with
   };
 
   const $ = sel => document.querySelector(sel);
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const keyOf = p => p.sample ? 'sample' : (p.project.uuid || '') + '|' + p.fileName;
+  // Two backups of the same job (same project id) can be loaded side by side; the backup time tells them apart
+  const keyOf = p => p.sample ? 'sample' : [p.project.uuid || '', p.backupDate || '', p.fileName].join('|');
+  const legacyKeyOf = p => (p.project.uuid || '') + '|' + p.fileName;
 
   // ---------- persistence (this browser only) ----------
   function save() {
@@ -45,13 +48,15 @@
   function active() { return state.projects.find(p => keyOf(p) === state.activeKey) || null; }
 
   // ---------- loading files ----------
-  async function loadFiles(files) {
+  async function loadFiles(files, opts) {
+    opts = opts || {};
     const list = Array.from(files).filter(f => /\.c4p$/i.test(f.name) || f.type === 'application/zip');
     if (!list.length) { showError('Those files are not .c4p backups. Export one from Composer Pro with File → Backup Project.'); return; }
     hideError();
     const loading = $('#loading');
     loading.hidden = false;
     let lastKey = null;
+    const loadedKeys = [];
     const failures = [];
     for (let i = 0; i < list.length; i++) {
       const f = list[i];
@@ -63,6 +68,7 @@
         state.projects = state.projects.filter(p => keyOf(p) !== k && !p.sample);
         state.projects.push(result);
         lastKey = k;
+        loadedKeys.push(k);
       } catch (e) {
         failures.push(`${f.name}: ${e.message || 'could not be read'}`);
       }
@@ -70,9 +76,15 @@
     loading.hidden = true;
     if (failures.length) showError(failures.join(' '));
     if (lastKey) {
-      state.projects.sort((a, b) => a.project.name.localeCompare(b.project.name));
-      state.activeKey = lastKey;
-      state.search = ''; state.category = 'All'; state.control = 'All';
+      state.projects.sort((a, b) => a.project.name.localeCompare(b.project.name) || String(a.backupDate || '').localeCompare(String(b.backupDate || '')));
+      if (opts.compareFor && state.projects.some(p => keyOf(p) === opts.compareFor)) {
+        state.activeKey = opts.compareFor;
+        state.compareWith[opts.compareFor] = loadedKeys.find(k => k !== opts.compareFor) || lastKey;
+        state.tab = 'changes';
+      } else {
+        state.activeKey = lastKey;
+        state.search = ''; state.category = 'All'; state.control = 'All';
+      }
       save();
       render();
       toast(list.length - failures.length === 1 ? 'Backup read' : `${list.length - failures.length} backups read`);
@@ -139,7 +151,7 @@
         <span class="led" aria-hidden="true"></span>
         <button class="open" data-key="${esc(k)}" aria-current="${k === state.activeKey}">
           <span class="pname">${esc(p.project.name || p.fileName)}${p.sample ? ' (example)' : ''}</span>
-          <span class="pmeta">${p.devices.length} devices · OS ${esc((p.project.osVersion || '').split('.').slice(0, 3).join('.'))}${bad ? ` · <span class="pflag">${bad} issue${bad > 1 ? 's' : ''}</span>` : ''}</span>
+          <span class="pmeta">${p.backupDate ? esc(p.backupDate.slice(0, 10)) + ' · ' : ''}${p.devices.length} devices · OS ${esc((p.project.osVersion || '').split('.').slice(0, 3).join('.'))}${bad ? ` · <span class="pflag">${bad} issue${bad > 1 ? 's' : ''}</span>` : ''}</span>
         </button>
         ${p.sample ? '' : `<button class="remove" data-remove="${esc(k)}" aria-label="Remove ${esc(p.project.name)} from this list" title="Remove from list">×</button>`}
       </li>`;
@@ -163,6 +175,7 @@
       ['schematic', 'Schematic', ''],
       ['wiring', 'Wiring', p.connections.length],
       ['attention', 'Attention', issues],
+      ['changes', 'Changes', changeCount(p)],
       ['services', 'Services & drivers', p.services.length]
     ];
 
@@ -176,6 +189,7 @@
             ${p.project.city ? `<span><b>Location</b>${esc(p.project.city)}</span>` : ''}
             <span><b>OS</b>${esc(p.project.osVersion || 'unknown')}</span>
             <span><b>Project rev</b>${esc(p.project.projectVersion || '?')}</span>
+            ${p.backupDate ? `<span><b>Backed up</b>${esc(p.backupDate)}</span>` : ''}
             <span><b>File</b><span class="mono">${esc(p.fileName)}</span></span>
           </div>
         </div>
@@ -210,10 +224,11 @@
     else if (state.tab === 'network') panel.innerHTML = networkPanel(p, rooms);
     else if (state.tab === 'schematic') {
       panel.innerHTML = '';
-      window.C4Schematic.mount(panel, p, { key: keyOf(p), fileBase: safeName(p), save: download, toast });
+      window.C4Schematic.mount(panel, p, { key: keyOf(p), legacyKey: legacyKeyOf(p), fileBase: safeName(p), save: download, toast });
     }
     else if (state.tab === 'wiring') panel.innerHTML = wiringPanel(p, rooms);
     else if (state.tab === 'attention') panel.innerHTML = attentionPanel(p, rooms);
+    else if (state.tab === 'changes') panel.innerHTML = changesPanel(p);
     else panel.innerHTML = servicesPanel(p, rooms);
     panel.style.display = 'flex'; panel.style.flexDirection = 'column'; panel.style.gap = '12px';
   }
@@ -350,6 +365,128 @@
       </div></div>`).join('')}</div>`;
   }
 
+  // ---------- changes between two backups ----------
+  function partnerOf(p) {
+    if (p.sample) return null;
+    const others = state.projects.filter(o => !o.sample && keyOf(o) !== keyOf(p));
+    const chosen = state.compareWith[keyOf(p)];
+    if (chosen) { const hit = others.find(o => keyOf(o) === chosen); if (hit) return hit; }
+    // Default: the closest other backup of the same job
+    const same = others.filter(o => o.project.uuid && o.project.uuid === p.project.uuid);
+    if (!same.length) return null;
+    const t = Date.parse((p.backupDate || '').replace(' ', 'T')) || 0;
+    same.sort((a, b) => Math.abs((Date.parse((a.backupDate || '').replace(' ', 'T')) || 0) - t) - Math.abs((Date.parse((b.backupDate || '').replace(' ', 'T')) || 0) - t));
+    return same[0];
+  }
+  function changeCount(p) {
+    const o = partnerOf(p);
+    if (!o) return '';
+    return window.C4Compare.compare(o, p).total;
+  }
+  function backupLabel(p) {
+    return [p.backupDate ? p.backupDate.slice(0, 10) : '', p.project.projectVersion ? 'rev ' + p.project.projectVersion : ''].filter(Boolean).join(' · ') || p.fileName;
+  }
+  function dash(v) { return v ? esc(v) : '<span class="empty-cell">none</span>'; }
+
+  function changesPanel(p) {
+    if (p.sample) {
+      return `<div class="compare-empty"><h2 class="section">Compare two backups of the same job</h2>
+        <p class="section-note">Open your own .c4p files first. Then open an older backup of the same project to see what was added, removed, readdressed or rewired between visits.</p></div>`;
+    }
+    const others = state.projects.filter(o => !o.sample && keyOf(o) !== keyOf(p));
+    const partner = partnerOf(p);
+    const picker = `
+      <div class="compare-bar">
+        <label class="field compare-pick"><span>Compare this backup with</span>
+          <select id="compare-select">
+            <option value=""${partner ? '' : ' selected'}>Choose a backup…</option>
+            ${others.map(o => `<option value="${esc(keyOf(o))}"${partner && keyOf(o) === keyOf(partner) ? ' selected' : ''}>${esc(o.project.name)} · ${esc(backupLabel(o))}${o.project.uuid === p.project.uuid ? ' (same job)' : ''}</option>`).join('')}
+          </select>
+        </label>
+        <label class="btn btn-small" for="compare-input">Open another backup to compare</label>
+      </div>`;
+    if (!partner) {
+      return picker + `<div class="compare-empty">
+        <h2 class="section">No other backup of this job is open</h2>
+        <p class="section-note">Open an older or newer .c4p of ${esc(p.project.name)} and this tab lists every device added or removed, every IP, firmware, driver or name change, and every wire that was rebound between the two.</p></div>`;
+    }
+
+    const r = window.C4Compare.compare(partner, p);
+    const ro = id => { const x = r.older.rooms.find(q => q.id === id); return x ? x.name : ''; };
+    const rn = id => { const x = r.newer.rooms.find(q => q.id === id); return x ? x.name : ''; };
+    const w = r.wiring;
+    const wiringCount = w.added.length + w.removed.length + w.rebound.length;
+    const roomCount = r.rooms.added.length + r.rooms.removed.length + r.rooms.renamed.length;
+    const svcCount = r.services.added.length + r.services.removed.length;
+
+    const head = `
+      <div class="compare-head">
+        <div class="compare-span">
+          <div><span class="eyebrow">Before</span><div class="cv">${esc(backupLabel(r.older))}</div><div class="dsub">${esc(r.older.fileName)}</div></div>
+          <div class="compare-arrow" aria-hidden="true">→</div>
+          <div><span class="eyebrow">After</span><div class="cv">${esc(backupLabel(r.newer))}</div><div class="dsub">${esc(r.newer.fileName)}</div></div>
+        </div>
+        <div class="export-row">
+          <button class="btn btn-small" data-action="copy-changes">Copy summary</button>
+          <button class="btn btn-small" data-action="changes-csv">Download CSV</button>
+        </div>
+      </div>
+      ${r.sameProject ? '' : `<div class="flag-inline warn compare-warn"><span class="flag-dot warn"></span>These backups come from different projects, so most devices will show as added or removed.</div>`}
+      <div class="stats compare-stats" role="list">
+        <div class="stat" role="listitem"><div class="v chg-add-t">${r.added.length}</div><div class="l">Devices added</div></div>
+        <div class="stat" role="listitem"><div class="v chg-del-t">${r.removed.length}</div><div class="l">Devices removed</div></div>
+        <div class="stat" role="listitem"><div class="v chg-mod-t">${r.changed.length}</div><div class="l">Devices changed</div></div>
+        <div class="stat" role="listitem"><div class="v">${r.network.length}</div><div class="l">Address changes</div></div>
+        <div class="stat" role="listitem"><div class="v">${wiringCount}</div><div class="l">Wiring changes</div></div>
+        <div class="stat" role="listitem"><div class="v">${roomCount + svcCount}</div><div class="l">Rooms and services</div></div>
+      </div>`;
+
+    if (!r.total && !r.projectChanges.length) return picker + head + `<div class="all-clear">No changes. These two backups describe the same system.</div>`;
+
+    const sections = [];
+    if (r.projectChanges.length) {
+      sections.push(`<h2 class="section">Project</h2><div class="sheet"><table><tbody>
+        ${r.projectChanges.map(c => `<tr><td class="chg chg-mod" aria-label="Changed">~</td><td class="dname">${esc(c.label)}</td><td class="before">${dash(c.from)}</td><td class="after">${dash(c.to)}</td></tr>`).join('')}
+      </tbody></table></div>`);
+    }
+    if (r.added.length || r.removed.length) {
+      sections.push(`<h2 class="section">Devices added and removed</h2><div class="sheet"><table>
+        <thead><tr><th></th><th>Device</th><th>Make / model</th><th>Room</th><th>Address</th></tr></thead><tbody>
+        ${r.added.map(d => `<tr><td class="chg chg-add" aria-label="Added">+</td><td class="dname">${esc(d.name)}</td><td>${esc([d.maker, d.model].filter(Boolean).join(' '))}</td><td>${esc(rn(d.room))}</td><td class="mono">${dash(d.ip || d.zigbee)}</td></tr>`).join('')}
+        ${r.removed.map(d => `<tr><td class="chg chg-del" aria-label="Removed">−</td><td class="dname">${esc(d.name)}</td><td>${esc([d.maker, d.model].filter(Boolean).join(' '))}</td><td>${esc(ro(d.room))}</td><td class="mono">${dash(d.ip || d.zigbee)}</td></tr>`).join('')}
+      </tbody></table></div>`);
+    }
+    if (r.changed.length) {
+      sections.push(`<h2 class="section">Devices changed</h2><div class="sheet"><table>
+        <thead><tr><th></th><th>Device</th><th>What changed</th><th>Before</th><th>After</th></tr></thead><tbody>
+        ${r.changed.map(c => c.fields.map((f, i) => `<tr${i ? ' class="cont"' : ''}>
+          <td class="chg chg-mod" aria-label="Changed">${i ? '' : '~'}</td>
+          <td class="dname">${i ? '' : esc(c.after.name) + (rn(c.after.room) ? `<div class="dsub">${esc(rn(c.after.room))}</div>` : '')}</td>
+          <td>${esc(f.label)}</td>
+          <td class="before ${/ip|mac|zigbee|driverVersion|firmware/.test(f.field) ? 'mono' : ''}">${dash(f.from)}</td>
+          <td class="after ${/ip|mac|zigbee|driverVersion|firmware/.test(f.field) ? 'mono' : ''}">${dash(f.to)}</td></tr>`).join('')).join('')}
+      </tbody></table></div>`);
+    }
+    if (wiringCount) {
+      sections.push(`<h2 class="section">Wiring</h2><div class="sheet"><table>
+        <thead><tr><th></th><th>Port</th><th>Before</th><th>After</th></tr></thead><tbody>
+        ${w.rebound.map(x => `<tr><td class="chg chg-mod" aria-label="Rebound">~</td><td>${esc(x.before.from.name)} <span class="mono">${esc(x.before.from.port)}</span></td><td class="before">${esc(x.before.to.name)} <span class="dsub">${esc(x.before.to.port)}</span></td><td class="after">${esc(x.after.to.name)} <span class="dsub">${esc(x.after.to.port)}</span></td></tr>`).join('')}
+        ${w.added.map(c => `<tr><td class="chg chg-add" aria-label="Added">+</td><td>${esc(c.from.name)} <span class="mono">${esc(c.from.port)}</span></td><td class="before"><span class="empty-cell">not connected</span></td><td class="after">${esc(c.to.name)} <span class="dsub">${esc(c.to.port)}</span></td></tr>`).join('')}
+        ${w.removed.map(c => `<tr><td class="chg chg-del" aria-label="Removed">−</td><td>${esc(c.from.name)} <span class="mono">${esc(c.from.port)}</span></td><td class="before">${esc(c.to.name)} <span class="dsub">${esc(c.to.port)}</span></td><td class="after"><span class="empty-cell">not connected</span></td></tr>`).join('')}
+      </tbody></table></div>`);
+    }
+    if (roomCount || svcCount) {
+      sections.push(`<h2 class="section">Rooms and services</h2><div class="sheet"><table><tbody>
+        ${r.rooms.renamed.map(x => `<tr><td class="chg chg-mod">~</td><td>Room renamed</td><td class="before">${esc(x.from)}</td><td class="after">${esc(x.to)}</td></tr>`).join('')}
+        ${r.rooms.added.map(x => `<tr><td class="chg chg-add">+</td><td>Room added</td><td></td><td class="after">${esc(x.name)}</td></tr>`).join('')}
+        ${r.rooms.removed.map(x => `<tr><td class="chg chg-del">−</td><td>Room removed</td><td class="before">${esc(x.name)}</td><td></td></tr>`).join('')}
+        ${r.services.added.map(x => `<tr><td class="chg chg-add">+</td><td>Service added</td><td></td><td class="after">${esc(x.name)}</td></tr>`).join('')}
+        ${r.services.removed.map(x => `<tr><td class="chg chg-del">−</td><td>Service removed</td><td class="before">${esc(x.name)}</td><td></td></tr>`).join('')}
+      </tbody></table></div>`);
+    }
+    return picker + head + sections.join('');
+  }
+
   function servicesPanel(p, rooms) {
     const missing = (p.stats.missingDrivers || []).filter(f => !/^control4_agent_|^roomdevice/.test(f));
     return `<p class="section-note">Software drivers in the project: streaming services, agents, virtual sources and helpers. They have no hardware to inventory.</p>
@@ -380,6 +517,14 @@
     if (!p) return;
     if (t.dataset.action === 'csv') download(safeName(p) + '_inventory.csv', devicesCsv(p), 'text/csv');
     if (t.dataset.action === 'copy-csv') copy(devicesCsv(p), 'Inventory copied as CSV');
+    if (t.dataset.action === 'copy-changes' || t.dataset.action === 'changes-csv') {
+      const o = partnerOf(p);
+      if (!o) return;
+      const r = window.C4Compare.compare(o, p);
+      if (t.dataset.action === 'copy-changes') copy(window.C4Compare.summaryText(r), 'Change summary copied');
+      else download(safeName(p) + '_changes_' + (r.older.backupDate || 'before').slice(0, 10) + '_to_' + (r.newer.backupDate || 'after').slice(0, 10) + '.csv', window.C4Compare.csv(r), 'text/csv');
+      return;
+    }
     if (t.dataset.action === 'json') download(safeName(p) + '_sitesheet.json', JSON.stringify(p, null, 2), 'application/json');
   });
 
@@ -401,6 +546,12 @@
   });
 
   $('#file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
+  $('#compare-input').addEventListener('change', e => { loadFiles(e.target.files, { compareFor: state.activeKey }); e.target.value = ''; });
+  document.addEventListener('change', e => {
+    if (e.target.id !== 'compare-select') return;
+    state.compareWith[state.activeKey] = e.target.value;
+    renderProject();
+  });
 
   let dragDepth = 0;
   window.addEventListener('dragenter', e => { if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) { dragDepth++; document.body.classList.add('dragging'); } });

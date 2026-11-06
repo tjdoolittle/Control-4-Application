@@ -24,6 +24,7 @@ Screenshots use real project backups with client names, locations, MACs and Zigb
 | **Devices** | Grouped by floor and room. Load or zone name, hardware name, manufacturer, model, control method (IP, Zigbee, IR, Serial), address, MAC, firmware and driver version. |
 | **Network** | IP devices sorted by address with MAC and status, duplicate IPs flagged, IP drivers with no address, and every Zigbee device ID. |
 | **Schematic** | Every wired device as a block with its real port names, laid out left to right by signal flow. Drag blocks, pan and zoom, click a block to trace its wires, filter by wire type. Add your own blocks (a network switch, a patch panel) and draw wires Composer doesn't know about, then rename their ports. Layout and added wires are saved per project. Export as SVG. |
+| **Changes** | Open two backups of the same job and see what changed between them: devices added or removed, IP, MAC, firmware and driver changes, renames and room moves, and rebound wiring. Copy the summary for a service ticket or download it as CSV. |
 | **Wiring** | IR emitters and serial runs by controller port, plus AV connections from each source output to the input it feeds. Virtual AV Path Setters are stitched through so each line shows the real input. |
 | **Attention** | Devices offline when the backup was taken, duplicate IPs, IR or serial drivers with no port bound, IP drivers with no address. |
 | **Services & drivers** | Streaming services, agents, virtual sources and other software drivers. |
@@ -54,6 +55,7 @@ app/css/style.css      app styles (light and dark)
 app/js/parser.js       the .c4p parser; works in the browser and in Node
 app/js/app.js          the interface
 app/js/schematic.js    the schematic builder
+app/js/compare.js      compares two backups; works in the browser and in Node
 app/js/sample.js       an invented example project shown before any file is opened
 desktop/               Windows/Mac/Linux desktop build (Neutralinojs)
 downloads/             the current Windows exe, linked from the landing page
@@ -69,6 +71,7 @@ To check the parser against real backups from the command line:
 ```
 npm install
 node test/parse-test.js path/to/Project.c4p
+node test/compare-test.js older.c4p newer.c4p
 ```
 
 `.c4p` files are git-ignored so client backups don't end up in the repo.
