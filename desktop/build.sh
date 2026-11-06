@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 rm -rf www/css www/index.html www/icon.png
 mkdir -p www/js www/css www/vendor
 cp ../css/style.css www/css/
-cp ../js/parser.js ../js/sample.js ../js/app.js www/js/
+cp ../js/parser.js ../js/sample.js ../js/schematic.js ../js/app.js www/js/
 cp ../node_modules/jszip/dist/jszip.min.js www/vendor/
 cp icon.png www/icon.png
 

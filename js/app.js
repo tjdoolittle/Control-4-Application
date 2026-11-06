@@ -160,6 +160,7 @@
     const tabs = [
       ['devices', 'Devices', p.devices.length],
       ['network', 'Network', ipCount + zbCount],
+      ['schematic', 'Schematic', ''],
       ['wiring', 'Wiring', p.connections.length],
       ['attention', 'Attention', issues],
       ['services', 'Services & drivers', p.services.length]
@@ -195,7 +196,7 @@
       </div>
 
       <div class="tabs" role="tablist">
-        ${tabs.map(([id, label, n]) => `<button class="tab" role="tab" id="tab-${id}" data-tab="${id}" aria-selected="${state.tab === id}" aria-controls="panel">${label}<span class="n">${n}</span></button>`).join('')}
+        ${tabs.map(([id, label, n]) => `<button class="tab" role="tab" id="tab-${id}" data-tab="${id}" aria-selected="${state.tab === id}" aria-controls="panel">${label}${n === '' ? '' : `<span class="n">${n}</span>`}</button>`).join('')}
       </div>
       <div id="panel" role="tabpanel" aria-labelledby="tab-${state.tab}"></div>
     `;
@@ -207,6 +208,10 @@
     if (!panel) return;
     if (state.tab === 'devices') panel.innerHTML = devicesPanel(p, rooms);
     else if (state.tab === 'network') panel.innerHTML = networkPanel(p, rooms);
+    else if (state.tab === 'schematic') {
+      panel.innerHTML = '';
+      window.C4Schematic.mount(panel, p, { key: keyOf(p), fileBase: safeName(p), save: download, toast });
+    }
     else if (state.tab === 'wiring') panel.innerHTML = wiringPanel(p, rooms);
     else if (state.tab === 'attention') panel.innerHTML = attentionPanel(p, rooms);
     else panel.innerHTML = servicesPanel(p, rooms);
@@ -361,6 +366,7 @@
     if (!t) return;
     if (t.dataset.key) { state.activeKey = t.dataset.key; state.search = ''; state.category = 'All'; state.control = 'All'; render(); return; }
     if (t.dataset.remove) {
+      try { localStorage.removeItem('c4sitesheet.schematic.v1.' + t.dataset.remove); } catch (err) {}
       state.projects = state.projects.filter(p => keyOf(p) !== t.dataset.remove);
       if (!state.projects.length) state.projects = [window.C4_SAMPLE];
       if (state.activeKey === t.dataset.remove) state.activeKey = keyOf(state.projects[0]);
