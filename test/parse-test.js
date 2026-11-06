@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const JSZip = require('jszip');
 const { DOMParser } = require('@xmldom/xmldom');
-const { createC4PParser } = require('../js/parser.js');
+const { createC4PParser } = require('../app/js/parser.js');
 
 const parser = createC4PParser(JSZip, DOMParser);
 (async () => {

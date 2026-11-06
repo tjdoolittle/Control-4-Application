@@ -135,13 +135,25 @@
     const order = {};
     const setOrder = () => cols.forEach(col => col.forEach((id, i) => { order[id] = i; }));
     setOrder();
-    const nb = id => Array.from(out[id]).concat(Array.from(inn[id]));
+    // Position of the neighbor's port, so blocks line up with the port that feeds them
+    function anchors(id) {
+      const pts = [];
+      model.wires.forEach(w => {
+        let other, port, list;
+        if (w.from === id) { other = w.to; port = w.toPort; list = model.nodes[w.to] && model.nodes[w.to].inputs; }
+        else if (w.to === id) { other = w.from; port = w.fromPort; list = model.nodes[w.from] && model.nodes[w.from].outputs; }
+        else return;
+        if (order[other] == null || !list) return;
+        pts.push(order[other] + (list.indexOf(port) + 1) / (list.length + 1));
+      });
+      return pts;
+    }
     for (let pass = 0; pass < 6; pass++) {
       cols.forEach(col => {
         const bc = {};
         col.forEach(id => {
-          const ns = nb(id).filter(n => order[n] != null);
-          bc[id] = ns.length ? ns.reduce((s, n) => s + order[n], 0) / ns.length : order[id];
+          const pts = anchors(id);
+          bc[id] = pts.length ? pts.reduce((s, v) => s + v, 0) / pts.length : order[id];
         });
         col.sort((a, b) => bc[a] - bc[b]);
         col.forEach((id, i) => { order[id] = i; });

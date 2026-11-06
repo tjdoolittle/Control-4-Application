@@ -4,61 +4,156 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>C4 Site Sheet</title>
-<meta name="description" content="Turn Control4 .c4p project backups into a device inventory, network sheet and wiring list. Files are read in your browser and never uploaded.">
+<meta name="description" content="Open a Control4 .c4p project backup and get the as-built: device inventory by room, a signal-flow schematic, wiring list, network sheet and problem list. Runs in your browser or as a small Windows app.">
+<meta property="og:title" content="C4 Site Sheet">
+<meta property="og:description" content="Turn a Control4 project backup into an as-built schematic and inventory.">
+<meta property="og:image" content="assets/screenshots/schematic.png">
+<link rel="icon" href="desktop/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
-<header class="topbar">
-  <div class="topbar-inner">
-    <div class="brand">
-      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="5" width="26" height="6" rx="1"/><rect x="3" y="13" width="26" height="6" rx="1"/><rect x="3" y="21" width="26" height="6" rx="1"/><circle cx="7" cy="8" r="1.2"/><circle cx="7" cy="16" r="1.2"/><circle cx="7" cy="24" r="1.2"/></svg>
-      <div>
-        <div class="brand-name">C4 Site Sheet</div>
-        <div class="brand-sub">Composer backup → as-built inventory</div>
-      </div>
-    </div>
-    <div class="topbar-actions">
-      <label class="btn btn-primary" for="file-input">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 16h12"/></svg>
-        Open .c4p files
-      </label>
-      <input id="file-input" type="file" accept=".c4p,application/zip" multiple hidden>
-    </div>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="./">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="5" width="26" height="6" rx="1"/><rect x="3" y="13" width="26" height="6" rx="1"/><rect x="3" y="21" width="26" height="6" rx="1"/><circle cx="7" cy="8" r="1.2"/><circle cx="7" cy="16" r="1.2"/><circle cx="7" cy="24" r="1.2"/></svg>
+      C4 Site Sheet
+    </a>
+    <nav class="nav-links" aria-label="Page">
+      <a href="#schematic">Schematic</a>
+      <a href="#inventory">Inventory</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/tjdoolittle/control-4-application">GitHub</a>
+    </nav>
   </div>
 </header>
 
-<div class="layout">
-  <aside class="sidebar" aria-label="Loaded projects">
-    <div class="sidebar-head">
-      <span class="eyebrow">Projects</span>
-      <span class="count" id="project-count">0</span>
+<main>
+  <section class="hero">
+    <div class="wrap hero-text">
+      <p class="eyebrow">For Control4 dealers and programmers</p>
+      <h1>Open a project backup. Get the as-built.</h1>
+      <p class="lede">C4 Site Sheet reads a Composer <span class="mono">.c4p</span> file and lays out every device, port and wire in the system: a signal-flow schematic, an inventory by room, the IR and serial map, the network sheet, and a list of what's broken.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="app/">Open the web app</a>
+        <a class="btn" href="downloads/C4SiteSheet-win_x64.exe" download>Download for Windows <span class="btn-note">2.7 MB</span></a>
+      </div>
+      <p class="fine">Free. Backups are read on your computer and never uploaded.</p>
     </div>
-    <ul class="project-list" id="project-list"></ul>
-    <div class="dropzone" id="dropzone">
-      <p><strong>Drop .c4p backups here</strong></p>
-      <p class="muted">Export from Composer Pro: File → Backup Project. Files are read in this browser and never uploaded.</p>
+    <div class="wrap">
+      <figure class="window hero-shot">
+        <div class="window-bar" aria-hidden="true"><span></span><span></span><span></span><b>Lakeview Estate · Schematic</b></div>
+        <img src="assets/screenshots/crop-schematic.webp" width="1684" height="1142" alt="Schematic of a 29-device Control4 system: controllers and IR extender on the left, sources in the middle, a MoIP video matrix, receiver and audio matrix, and eight displays on the right, with IR, serial, HDMI and audio wires drawn between named ports.">
+      </figure>
+      <p class="caption">A real 29-device project, drawn straight from its backup. Names changed for privacy.</p>
     </div>
-  </aside>
+  </section>
 
-  <main class="main" id="main">
-    <div class="loading" id="loading" hidden>
-      <div class="spinner" aria-hidden="true"></div>
-      <span id="loading-text">Reading backup…</span>
+  <section class="facts wrap" aria-label="What it reads">
+    <div class="fact"><span class="fact-k">Reads</span><span class="fact-v">project.xml, every bundled <span class="mono">.c4i</span> and <span class="mono">.c4z</span> driver, and the backup manifest</span></div>
+    <div class="fact"><span class="fact-k">Tested on</span><span class="fact-v">Director OS 3.4 and 4.2 projects, from a single media room to a whole-house MoIP system</span></div>
+    <div class="fact"><span class="fact-k">Speed</span><span class="fact-v">Under a second for a 30 MB backup</span></div>
+  </section>
+
+  <section id="schematic" class="feature wrap">
+    <div class="feature-text">
+      <p class="eyebrow">Schematic</p>
+      <h2>The wiring diagram Composer never gives you</h2>
+      <p>Every wired device becomes a block with its real port names: <span class="mono">IR OUT 5</span>, <span class="mono">RX 3</span>, <span class="mono">INPUT CBL/SAT</span>. Blocks are arranged left to right by signal flow, from controllers and sources through switching to receivers and displays.</p>
+      <ul class="ticks">
+        <li>IR, serial, HDMI and audio wires in their own colors, each one toggleable</li>
+        <li>AV Path Setters and other virtual drivers are skipped, so a wire runs from the source to the input it really feeds</li>
+        <li>Drag blocks anywhere. The layout is saved per project</li>
+        <li>Export the drawing as SVG for Visio, Illustrator or a closeout packet</li>
+      </ul>
     </div>
-    <div class="error-banner" id="error" role="alert" hidden></div>
-    <section id="project-view"></section>
-  </main>
-</div>
+    <figure class="shot">
+      <img src="assets/screenshots/crop-trace.webp" width="1400" height="949" loading="lazy" alt="Schematic with the IO Extender selected: its seven IR outputs and one serial output are highlighted running to each TV and the disc changer, and all other blocks are faded.">
+      <figcaption>Click a block to trace it. Here, the IR extender's seven emitters and one serial run.</figcaption>
+    </figure>
+  </section>
 
-<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <section class="feature feature-flip wrap">
+    <div class="feature-text">
+      <p class="eyebrow">Builder</p>
+      <h2>Draw in what the project doesn't know about</h2>
+      <p>Composer only knows the gear it controls. Add your own blocks for the network switch, patch panel or speakers, then drag from one block to another to run a wire. Name the ports, set the wire type, and it's saved with the project.</p>
+      <p>On a lighting and IP job with no AV wiring at all, <b>Add all</b> puts every device on the canvas so you can draw the network yourself.</p>
+    </div>
+    <figure class="shot">
+      <img src="assets/screenshots/crop-builder.webp" width="1400" height="949" loading="lazy" alt="A hand-added network switch block with seven ports wired to three Control4 CORE controllers, two WattBoxes and an amplifier, drawn as dashed purple network wires.">
+      <figcaption>A network switch added by hand, wired to the controllers, WattBoxes and amp.</figcaption>
+    </figure>
+  </section>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="js/parser.js"></script>
-<script src="js/sample.js"></script>
-<script src="js/schematic.js"></script>
-<script src="js/app.js"></script>
+  <section id="inventory" class="feature wrap">
+    <div class="feature-text">
+      <p class="eyebrow">Inventory</p>
+      <h2>Every device, room by room</h2>
+      <p>Make, model, control method, IP or Zigbee ID, MAC, firmware and driver version for each piece of hardware, grouped by floor and room. Dimmers show their load name, so you see <i>Hall Pendants</i> instead of a row of identical <i>Adaptive Phase Dimmer</i>.</p>
+      <p>Search by anything (an IP, a MAC, a model number) and filter by category or control type. Export to CSV for Excel or Google Sheets.</p>
+    </div>
+    <figure class="shot">
+      <img src="assets/screenshots/devices.webp" width="1800" height="1125" loading="lazy" alt="Device inventory grouped by room, with columns for device, make and model, control type badge, address, MAC and version, and summary counts across the top.">
+    </figure>
+  </section>
+
+  <section class="gallery wrap" aria-label="More views">
+    <figure class="tile">
+      <img src="assets/screenshots/crop-wiring.webp" width="1600" height="1150" loading="lazy" alt="Wiring list grouped by controller, showing each IR output port and the device it drives.">
+      <figcaption><b>Wiring list.</b> Every IR emitter and serial run by port, and every source output with the input it feeds. The page to print for a service call.</figcaption>
+    </figure>
+    <figure class="tile">
+      <img src="assets/screenshots/network.webp" width="1800" height="1125" loading="lazy" alt="Network sheet listing IP devices in address order with MAC, model and status.">
+      <figcaption><b>Network sheet.</b> IP devices in address order with MACs and status, every Zigbee ID, and IP drivers that were never given an address.</figcaption>
+    </figure>
+    <figure class="tile">
+      <img src="assets/screenshots/attention.webp" width="1600" height="622" loading="lazy" alt="Attention list showing two devices reported offline and one IP driver with no address set.">
+      <figcaption><b>Attention list.</b> Devices offline when the backup was taken, duplicate IPs, and IR or serial drivers with no port bound.</figcaption>
+    </figure>
+  </section>
+
+  <section class="privacy">
+    <div class="wrap privacy-inner">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.4 3 8.3 7 9.5 4-1.2 7-5.1 7-9.5V6l-7-3z"/><path d="m9 12 2 2 4-4"/></svg>
+      <div>
+        <h2>Client files stay on your computer</h2>
+        <p>The backup is opened and parsed inside your browser or the desktop app. Nothing is uploaded, there's no account, and no server ever sees a client's name, address or network. Projects you open are remembered only in that browser, and the × next to a project forgets it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="download" class="download wrap">
+    <div class="download-text">
+      <p class="eyebrow">Download</p>
+      <h2>A 2.7 MB Windows app that works offline</h2>
+      <p>One portable file, no installer. It uses the WebView2 engine built into Windows 10 and 11, saves exports through a normal Save dialog, and runs in the truck with no signal.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="downloads/C4SiteSheet-win_x64.exe" download>Download C4SiteSheet.exe</a>
+        <a class="btn" href="app/">Or use it in the browser</a>
+      </div>
+      <p class="fine">The exe isn't code-signed yet, so Windows SmartScreen asks once. Choose <b>More info</b>, then <b>Run anyway</b>.</p>
+    </div>
+    <ol class="steps">
+      <li><span class="n">1</span><div><b>Back up the project</b><span>In Composer Pro: File → Backup Project. Save the <span class="mono">.c4p</span>.</span></div></li>
+      <li><span class="n">2</span><div><b>Open it in Site Sheet</b><span>Drop one or several backups on the window. Each becomes a project in the list.</span></div></li>
+      <li><span class="n">3</span><div><b>Take the as-built with you</b><span>Export the inventory as CSV and the schematic as SVG, or keep the app on your phone at the rack.</span></div></li>
+    </ol>
+    <figure class="phone">
+      <img src="assets/screenshots/mobile.webp" width="700" height="1515" loading="lazy" alt="The device inventory on a phone screen.">
+    </figure>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner">
+    <span>Built by <a href="https://tjdoolittle.github.io/">Thomas J. Doolittle</a>, Control4 certified programmer in Atlanta.</span>
+    <span class="muted">Not affiliated with Control4 or Snap One. Control4 is a trademark of its owner.</span>
+  </div>
+</footer>
+
 </body>
 </html>

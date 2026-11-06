@@ -1,8 +1,21 @@
 # C4 Site Sheet
 
-Open a Control4 `.c4p` project backup and get an as-built inventory of the system: every device by room, the network sheet, the IR/serial and AV wiring, and a list of things that need attention.
+Open a Control4 `.c4p` project backup and get the as-built: a signal-flow schematic, every device by room, the IR/serial and AV wiring, the network sheet, and a list of things that need attention.
 
-Everything runs in the browser. Backup files are read locally and never uploaded.
+**[Website](https://tjdoolittle.github.io/control-4-application/)** · **[Open the web app](https://tjdoolittle.github.io/control-4-application/app/)** · **[Download for Windows](downloads/C4SiteSheet-win_x64.exe)** (2.7 MB, portable)
+
+Everything runs on your computer. Backup files are read locally and never uploaded.
+
+![Schematic of a 29-device system, drawn from its backup](assets/screenshots/schematic.png)
+
+<table>
+<tr>
+<td width="50%"><img src="assets/screenshots/crop-builder.png" alt="A hand-added network switch wired to controllers and WattBoxes"><br><sub>Add your own blocks and wires for gear Composer doesn't know about.</sub></td>
+<td width="50%"><img src="assets/screenshots/devices.png" alt="Device inventory grouped by room"><br><sub>Every device by room with model, address, MAC and versions.</sub></td>
+</tr>
+</table>
+
+Screenshots use real project backups with client names, locations, MACs and Zigbee IDs replaced.
 
 ## What it pulls out of a backup
 
@@ -34,19 +47,22 @@ Tested against OS 3.4.3 and OS 4.2.1 backups.
 ## Files
 
 ```
-index.html        page shell
-css/style.css     styles (light and dark)
-js/parser.js      the .c4p parser; works in the browser and in Node
-js/app.js         the interface
-js/schematic.js   the schematic builder
-js/sample.js      an invented example project shown before any file is opened
-desktop/          Windows/Mac/Linux desktop build (Neutralinojs)
-test/parse-test.js  prints the parsed inventory for one or more backups
+index.html             landing page (GitHub Pages root)
+assets/                landing page styles and screenshots
+app/index.html         the app
+app/css/style.css      app styles (light and dark)
+app/js/parser.js       the .c4p parser; works in the browser and in Node
+app/js/app.js          the interface
+app/js/schematic.js    the schematic builder
+app/js/sample.js       an invented example project shown before any file is opened
+desktop/               Windows/Mac/Linux desktop build (Neutralinojs)
+downloads/             the current Windows exe, linked from the landing page
+test/parse-test.js     prints the parsed inventory for one or more backups
 ```
 
 ## Running it
 
-Open `index.html` through any static server, or publish with GitHub Pages (Settings → Pages → Deploy from branch → `main`, root).
+Serve the repo root with any static server: the landing page is `/` and the app is `/app/`. On GitHub Pages: Settings → Pages → Deploy from branch → `main`, `/ (root)`.
 
 To check the parser against real backups from the command line:
 
@@ -68,4 +84,4 @@ npm install
 bash desktop/build.sh
 ```
 
-The executables land in `desktop/dist/C4SiteSheet/`. The exe is unsigned, so the first launch shows Windows SmartScreen: choose **More info → Run anyway**.
+The executables land in `desktop/dist/C4SiteSheet/`. Copy the Windows one to `downloads/C4SiteSheet-win_x64.exe` to update the landing page download. The exe is unsigned, so the first launch shows Windows SmartScreen: choose **More info → Run anyway**.
