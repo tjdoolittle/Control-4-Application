@@ -1,3 +1,8 @@
 node_modules/
 *.c4p
 .DS_Store
+desktop/bin/
+desktop/dist/
+desktop/www/
+desktop/.tmp/
+desktop/.storage/

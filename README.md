@@ -38,6 +38,7 @@ css/style.css     styles (light and dark)
 js/parser.js      the .c4p parser; works in the browser and in Node
 js/app.js         the interface
 js/sample.js      an invented example project shown before any file is opened
+desktop/          Windows/Mac/Linux desktop build (Neutralinojs)
 test/parse-test.js  prints the parsed inventory for one or more backups
 ```
 
@@ -53,3 +54,16 @@ node test/parse-test.js path/to/Project.c4p
 ```
 
 `.c4p` files are git-ignored so client backups don't end up in the repo.
+
+## Windows desktop app
+
+`desktop/` wraps the same site files into a single portable `C4SiteSheet-win_x64.exe` (about 3 MB) using [Neutralinojs](https://neutralino.js.org). It uses the WebView2 engine built into Windows 10 and 11, works offline, and saves CSV and JSON exports through a normal Save dialog.
+
+Build it (Mac and Linux builds come out at the same time):
+
+```
+npm install
+bash desktop/build.sh
+```
+
+The executables land in `desktop/dist/C4SiteSheet/`. The exe is unsigned, so the first launch shows Windows SmartScreen: choose **More info → Run anyway**.

@@ -92,7 +92,23 @@
     });
     return [head].concat(rows).map(r => r.map(csvCell).join(',')).join('\r\n');
   }
-  function download(name, text, type) {
+  async function download(name, text, type) {
+    // Desktop app: native Save dialog, then write the file directly
+    if (window.Neutralino && window.NL_OS) {
+      try {
+        const ext = name.split('.').pop();
+        const path = await Neutralino.os.showSaveDialog('Save ' + name, {
+          defaultPath: name,
+          filters: [{ name: ext.toUpperCase() + ' file', extensions: [ext] }]
+        });
+        if (!path) return;
+        await Neutralino.filesystem.writeFile(path, text);
+        toast('Saved ' + path.split(/[\\/]/).pop());
+      } catch (e) {
+        toast('Could not save the file: ' + (e.message || e.code || 'unknown error'));
+      }
+      return;
+    }
     const blob = new Blob([text], { type });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);

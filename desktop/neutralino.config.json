@@ -1,0 +1,39 @@
+{
+  "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
+  "applicationId": "com.tjdoolittle.c4sitesheet",
+  "applicationName": "C4 Site Sheet",
+  "author": "Thomas J. Doolittle",
+  "description": "Turn Control4 .c4p project backups into a device inventory, network sheet and wiring list.",
+  "version": "0.1.0",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/www/",
+  "url": "/",
+  "enableServer": true,
+  "enableNativeAPI": true,
+  "tokenSecurity": "one-time",
+  "logging": { "enabled": false, "writeToLogFile": false },
+  "nativeAllowList": ["app.*", "os.showSaveDialog", "os.open", "filesystem.writeFile", "window.*"],
+  "modes": {
+    "window": {
+      "title": "C4 Site Sheet",
+      "width": 1360,
+      "height": 900,
+      "minWidth": 420,
+      "minHeight": 500,
+      "center": true,
+      "icon": "/www/icon.png",
+      "enableInspector": false,
+      "useSavedState": true,
+      "exitProcessOnClose": true
+    }
+  },
+  "cli": {
+    "binaryName": "C4SiteSheet",
+    "resourcesPath": "/www/",
+    "extensionsPath": "/extensions/",
+    "clientLibrary": "/www/js/neutralino.js",
+    "binaryVersion": "6.10.0",
+    "clientVersion": "6.10.0"
+  }
+}
