@@ -2,7 +2,7 @@
 
 Open a Control4 `.c4p` project backup and get the as-built: a signal-flow schematic, every device by room, the IR/serial and AV wiring, the network sheet, and a list of things that need attention.
 
-**[Website](https://tjdoolittle.github.io/control-4-application/)** · **[Open the web app](https://tjdoolittle.github.io/control-4-application/app/)** · **[Download for Windows](downloads/C4SiteSheet-win_x64.exe)** (2.7 MB, portable)
+**[Website](https://tjdoolittle.github.io/Control-4-Application/)** · **[Open the web app](https://tjdoolittle.github.io/Control-4-Application/app/)** · **[Download for Windows](downloads/C4SiteSheet-win_x64.exe)** (2.7 MB, portable)
 
 Everything runs on your computer. Backup files are read locally and never uploaded.
 
