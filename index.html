@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>C4 Site Sheet</title>
+<meta name="description" content="Turn Control4 .c4p project backups into a device inventory, network sheet and wiring list. Files are read in your browser and never uploaded.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="5" width="26" height="6" rx="1"/><rect x="3" y="13" width="26" height="6" rx="1"/><rect x="3" y="21" width="26" height="6" rx="1"/><circle cx="7" cy="8" r="1.2"/><circle cx="7" cy="16" r="1.2"/><circle cx="7" cy="24" r="1.2"/></svg>
+      <div>
+        <div class="brand-name">C4 Site Sheet</div>
+        <div class="brand-sub">Composer backup → as-built inventory</div>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <label class="btn btn-primary" for="file-input">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 16h12"/></svg>
+        Open .c4p files
+      </label>
+      <input id="file-input" type="file" accept=".c4p,application/zip" multiple hidden>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar" aria-label="Loaded projects">
+    <div class="sidebar-head">
+      <span class="eyebrow">Projects</span>
+      <span class="count" id="project-count">0</span>
+    </div>
+    <ul class="project-list" id="project-list"></ul>
+    <div class="dropzone" id="dropzone">
+      <p><strong>Drop .c4p backups here</strong></p>
+      <p class="muted">Export from Composer Pro: File → Backup Project. Files are read in this browser and never uploaded.</p>
+    </div>
+  </aside>
+
+  <main class="main" id="main">
+    <div class="loading" id="loading" hidden>
+      <div class="spinner" aria-hidden="true"></div>
+      <span id="loading-text">Reading backup…</span>
+    </div>
+    <div class="error-banner" id="error" role="alert" hidden></div>
+    <section id="project-view"></section>
+  </main>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/sample.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
